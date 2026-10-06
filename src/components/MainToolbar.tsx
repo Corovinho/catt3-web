@@ -1,14 +1,19 @@
 import React from 'react';
-import { Calculator, Settings, Sparkles, PlusCircle, Trash2, LineChart, Table } from 'lucide-react';
+import { Calculator, Settings, Sparkles, PlusCircle, Trash2, Layers, Cpu } from 'lucide-react';
+import { CalcMode, SubstanceCategory } from '../types/thermo';
 
 interface MainToolbarProps {
   onOpenCalculate: () => void;
   onOpenUnits: () => void;
   onOpenProcess: () => void;
+  onOpenTablesSubstances: () => void;
   onAddCurrentState: () => void;
   onClearLog: () => void;
   diagramType: 'Ts' | 'Pv';
   setDiagramType: (d: 'Ts' | 'Pv') => void;
+  calcMode: CalcMode;
+  setCalcMode: (m: CalcMode) => void;
+  category: SubstanceCategory;
   activeSubstanceName: string;
 }
 
@@ -16,12 +21,18 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   onOpenCalculate,
   onOpenUnits,
   onOpenProcess,
+  onOpenTablesSubstances,
   onAddCurrentState,
   onClearLog,
   diagramType,
   setDiagramType,
+  calcMode,
+  setCalcMode,
+  category,
   activeSubstanceName,
 }) => {
+  const isFluid = category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS';
+
   return (
     <div className="border-b border-slate-300 bg-[#f5f5f5] font-mono select-none">
       {/* Top Menu Bar matching CATT3 */}
@@ -33,31 +44,82 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           <button onClick={onClearLog} className="hover:bg-slate-200 px-1.5 py-0.5">
             Editar
           </button>
-          <button onClick={onOpenCalculate} className="hover:bg-slate-200 px-1.5 py-0.5">
+          <button
+            onClick={onOpenTablesSubstances}
+            className="hover:bg-slate-200 px-1.5 py-0.5 font-bold text-black border border-slate-300 bg-slate-50"
+          >
             Tabelas / Substâncias
           </button>
           <button onClick={onOpenUnits} className="hover:bg-slate-200 px-1.5 py-0.5">
             Opções
           </button>
-          <button onClick={() => alert('CATT3 Web - Computer-Aided Thermodynamic Tables 3.\nVersão em Português para Termodinâmica de Engenharia.')} className="hover:bg-slate-200 px-1.5 py-0.5">
+          <button
+            onClick={() =>
+              alert(
+                'CATT3 Web - Computer-Aided Thermodynamic Tables 3.\nVersão em Português para Termodinâmica.\nDesenvolvido com IAPWS-IF97, NIST Shomate e Tabelas de Moran & Shapiro / Çengel.'
+              )
+            }
+            className="hover:bg-slate-200 px-1.5 py-0.5"
+          >
             Ajuda
           </button>
         </div>
-        <div className="ml-auto text-[11px] text-slate-500 font-bold uppercase">
-          {activeSubstanceName}
+        <div className="ml-auto flex items-center gap-2">
+          {isFluid && (
+            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 border border-slate-300 font-bold uppercase">
+              Modo: {calcMode === 'GENERAL' ? 'Geral' : 'Saturação'}
+            </span>
+          )}
+          <span className="text-[11px] text-slate-900 font-bold uppercase">
+            {activeSubstanceName}
+          </span>
         </div>
       </div>
 
       {/* Toolbar Icons matching CATT3 */}
-      <div className="flex items-center gap-1 px-3 py-1.5 bg-[#ebebeb] text-slate-800 flex-wrap">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ebebeb] text-slate-800 flex-wrap">
+        {/* Calculation Modes (General vs Saturation) - Authentic CATT3 feature for fluids */}
+        {isFluid && (
+          <div className="flex items-center border border-slate-400 bg-white p-0.5 text-xs mr-1">
+            <button
+              onClick={() => setCalcMode('GENERAL')}
+              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                calcMode === 'GENERAL' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+              title="Modo Propriedades Gerais (qualquer região termodinâmica)"
+            >
+              <span>Prop. Gerais</span>
+            </button>
+            <button
+              onClick={() => setCalcMode('SATURATION')}
+              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 ${
+                calcMode === 'SATURATION' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+              title="Modo Propriedades de Saturação (região bifásica / domo)"
+            >
+              <span>Prop. Saturação</span>
+            </button>
+          </div>
+        )}
+
         {/* Calculate button (Calculator icon) */}
         <button
           onClick={onOpenCalculate}
           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
-          title="Calcular Propriedades Gerais"
+          title="Calcular Propriedades da Substância Ativa"
         >
           <Calculator className="w-4 h-4 text-black" />
           <span>Calcular</span>
+        </button>
+
+        {/* Tables / Substances quick button */}
+        <button
+          onClick={onOpenTablesSubstances}
+          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+          title="Escolher Tabela / Substância (Água, Refrigerantes, Ar, Gases, etc.)"
+        >
+          <Layers className="w-4 h-4 text-black" />
+          <span>Substâncias</span>
         </button>
 
         {/* Units button */}
@@ -82,21 +144,23 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
 
         <div className="h-5 w-px bg-slate-400 mx-1"></div>
 
-        {/* Diagram Mode toggle */}
-        <div className="flex items-center border border-slate-400 bg-white p-0.5 text-xs">
-          <button
-            onClick={() => setDiagramType('Ts')}
-            className={`px-2 py-0.5 ${diagramType === 'Ts' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
-          >
-            T-s
-          </button>
-          <button
-            onClick={() => setDiagramType('Pv')}
-            className={`px-2 py-0.5 ${diagramType === 'Pv' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
-          >
-            P-v
-          </button>
-        </div>
+        {/* Diagram Mode toggle (only for Fluids) */}
+        {isFluid && (
+          <div className="flex items-center border border-slate-400 bg-white p-0.5 text-xs">
+            <button
+              onClick={() => setDiagramType('Ts')}
+              className={`px-2 py-0.5 ${diagramType === 'Ts' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
+            >
+              T-s
+            </button>
+            <button
+              onClick={() => setDiagramType('Pv')}
+              className={`px-2 py-0.5 ${diagramType === 'Pv' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
+            >
+              P-v
+            </button>
+          </div>
+        )}
 
         <div className="h-5 w-px bg-slate-400 mx-1"></div>
 

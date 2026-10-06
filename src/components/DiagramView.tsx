@@ -1,8 +1,9 @@
 import React from 'react';
-import { ThermodynamicState } from '../types/thermo';
+import { ThermodynamicState, SubstanceCategory } from '../types/thermo';
 
 interface DiagramViewProps {
   states: ThermodynamicState[];
+  category: SubstanceCategory;
   currentSubstance: string;
   diagramType: 'Ts' | 'Pv';
   setDiagramType: (d: 'Ts' | 'Pv') => void;
@@ -10,11 +11,21 @@ interface DiagramViewProps {
 
 export const DiagramView: React.FC<DiagramViewProps> = ({
   states,
+  category,
   currentSubstance,
   diagramType,
   setDiagramType,
 }) => {
-  // Precomputed saturation dome coordinates for Water / Steam (T-s)
+  const width = 640;
+  const height = 370;
+  const padL = 65;
+  const padR = 35;
+  const padT = 35;
+  const padB = 55;
+
+  // =========================================================================
+  // 1. FLUIDS (WATER, REFRIGERANTS, CRYOGENICS) - T-s & P-v
+  // =========================================================================
   const tsDomeWater = [
     { s: 0.0, T: 0.01 },
     { s: 0.367, T: 25 },
@@ -39,10 +50,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     { s: 9.156, T: 0.01 },
   ];
 
-  // Precomputed saturation dome coordinates for Water / Steam (P-v)
   const pvDomeWater = [
-    // Ramo de Líquido Saturado (vf)
-    { v: 0.001000, P: 0.000611 }, // Triplo
+    { v: 0.001000, P: 0.000611 },
     { v: 0.001003, P: 0.00317 },
     { v: 0.001012, P: 0.01235 },
     { v: 0.001026, P: 0.03858 },
@@ -53,7 +62,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     { v: 0.001404, P: 8.588 },
     { v: 0.001741, P: 16.53 },
     { v: 0.003106, P: 22.064 }, // Ponto Crítico P-v
-    // Ramo de Vapor Saturado (vg)
     { v: 0.00881,  P: 16.53 },
     { v: 0.02167,  P: 8.588 },
     { v: 0.05013,  P: 3.974 },
@@ -66,37 +74,24 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     { v: 206.1,    P: 0.000611 },
   ];
 
-  const width = 600;
-  const height = 360;
-  const padding = 55;
+  // Fluid Scales
+  const minS = 0, maxS = 10;
+  const minT = 0, maxT = 450;
+  const toXTs = (s: number) => padL + ((s - minS) / (maxS - minS)) * (width - padL - padR);
+  const toYTs = (T: number) => height - padB - ((T - minT) / (maxT - minT)) * (height - padT - padB);
 
-  // T-s Domain
-  const minS = 0;
-  const maxS = 10;
-  const minT = 0;
-  const maxT = 450;
-
-  const toXTs = (s: number) => padding + ((s - minS) / (maxS - minS)) * (width - 2 * padding);
-  const toYTs = (T: number) => height - padding - ((T - minT) / (maxT - minT)) * (height - 2 * padding);
-
-  // P-v Domain (Log10 for volume, Linear for pressure in MPa)
-  const minLogV = -3.2; // ~0.0006 m3/kg
-  const maxLogV = 1.0;  // 10 m3/kg
-  const minP = 0;
-  const maxP = 25;      // MPa
-
+  const minLogV = -3.2, maxLogV = 1.0;
+  const minP = 0, maxP = 25;
   const toXPv = (v: number) => {
     const safeV = Math.max(0.0006, Math.min(10, v));
     const logV = Math.log10(safeV);
-    return padding + ((logV - minLogV) / (maxLogV - minLogV)) * (width - 2 * padding);
+    return padL + ((logV - minLogV) / (maxLogV - minLogV)) * (width - padL - padR);
   };
-
   const toYPv = (P_MPa: number) => {
     const safeP = Math.max(0, Math.min(maxP, P_MPa));
-    return height - padding - ((safeP - minP) / (maxP - minP)) * (height - 2 * padding);
+    return height - padB - ((safeP - minP) / (maxP - minP)) * (height - padT - padB);
   };
 
-  // Build Dome Paths
   const domePathTs = tsDomeWater.reduce((acc, pt, idx) => {
     const x = toXTs(pt.s);
     const y = toYTs(pt.T);
@@ -109,99 +104,531 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
   }, '');
 
-  const plottedStates = states.filter((s) => s.category === 'WATER' || s.category === 'REFRIGERANTS');
+  // =========================================================================
+  // 2. PSYCHROMETRIC CHART SCALES (Tdb: -10 to 50°C, w: 0 to 30 g/kg)
+  // =========================================================================
+  const minTdb = -10, maxTdb = 50;
+  const minW = 0, maxW = 30; // g water / kg dry air
+  const toXPsych = (t: number) => padL + ((t - minTdb) / (maxTdb - minTdb)) * (width - padL - padR);
+  const toYPsych = (w_g: number) => height - padB - ((w_g - minW) / (maxW - minW)) * (height - padT - padB);
 
-  const vTicks = [
-    { val: 0.001, label: '0,001' },
-    { val: 0.01, label: '0,01' },
-    { val: 0.1, label: '0,1' },
-    { val: 1, label: '1' },
-    { val: 10, label: '10' },
-  ];
+  // Saturation and RH curves for Psychrometrics
+  const generateRhPath = (rhPercent: number) => {
+    const pts: { x: number; y: number }[] = [];
+    for (let t = -10; t <= 50; t += 2) {
+      // Saturation pressure in kPa
+      const pvs = 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
+      const pv = (rhPercent / 100) * pvs;
+      const w_kg = 0.62198 * (pv / (101.325 - pv));
+      const w_g = Math.min(30, Math.max(0, w_kg * 1000));
+      pts.push({ x: toXPsych(t), y: toYPsych(w_g) });
+    }
+    return pts.reduce((acc, pt, idx) => idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+  };
 
-  const pTicks = [5, 10, 15, 20, 25];
-  const tTicks = [100, 200, 300, 400];
-  const sTicks = [2, 4, 6, 8];
+  // =========================================================================
+  // 3. COMPRESSIBILITY CHART SCALES (Pr: 0 to 10, Z: 0 to 1.2)
+  // =========================================================================
+  const minPr = 0, maxPr = 10;
+  const minZ = 0, maxZ = 1.2;
+  const toXCompr = (pr: number) => padL + ((pr - minPr) / (maxPr - minPr)) * (width - padL - padR);
+  const toYCompr = (z: number) => height - padB - ((z - minZ) / (maxZ - minZ)) * (height - padT - padB);
+
+  const generateZCurve = (Tr: number) => {
+    const pts: { x: number; y: number }[] = [];
+    for (let pr = 0.05; pr <= 10; pr += 0.2) {
+      const B0 = 0.083 - 0.422 / Math.pow(Tr, 1.6);
+      let z = 1 + B0 * (pr / Tr);
+      if (pr > 0.6) {
+        z = Math.max(0.15, Math.min(1.2, 1 + B0 * (pr / Tr) + 0.05 * Math.pow(pr / Tr, 2)));
+      }
+      pts.push({ x: toXCompr(pr), y: toYCompr(z) });
+    }
+    return pts.reduce((acc, pt, idx) => idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+  };
+
+  // Plotted states filter
+  const plottedStates = states.filter((s) => s.category === category);
 
   return (
     <div className="bg-white border-2 border-slate-900 p-3 sm:p-5 shadow-sm space-y-3 font-mono flex flex-col justify-between h-full">
-      {/* Header & Controls */}
+      {/* Header & Diagram Selector */}
       <div className="flex items-center justify-between border-b border-slate-300 pb-2">
         <div>
           <h3 className="font-bold text-slate-900 text-xs sm:text-sm uppercase tracking-tight">
-            {diagramType === 'Ts' ? 'Diagrama T - s' : 'Diagrama P - v'}
+            {category === 'PSYCHROMETRICS'
+              ? 'Carta Psicrométrica (Psychrometric Chart)'
+              : category === 'COMPRESSIBILITY'
+              ? 'Carta Generalizada de Compressibilidade (Z vs. Pr)'
+              : category === 'AIR' || category === 'IDEAL_GASES'
+              ? `Diagrama T - s (${category === 'AIR' ? 'Ar' : 'Gás Ideal'})`
+              : diagramType === 'Ts' ? 'Diagrama T - s' : 'Diagrama P - v'}
           </h3>
           <p className="text-[10px] text-slate-500 font-mono">
-            {diagramType === 'Ts'
+            {category === 'PSYCHROMETRICS'
+              ? 'Bulbo Seco [°C] vs. Razão de Umidade [g/kg ar seco] com curvas de UR (%)'
+              : category === 'COMPRESSIBILITY'
+              ? 'Pressão Reduzida (Pr) vs. Fator Z com isotermas reduzidas (Tr)'
+              : category === 'AIR' || category === 'IDEAL_GASES'
               ? 'Temperatura [°C] vs. Entropia Específica [kJ/(kg·K)]'
-              : 'Pressão [MPa] vs. Volume Específico [m³/kg]'}
+              : diagramType === 'Ts'
+              ? 'Temperatura [°C] vs. Entropia Específica [kJ/(kg·K)]'
+              : 'Pressão [MPa] vs. Volume Específico [m³/kg] (Escala Log)'}
           </p>
         </div>
 
-        {/* T-s and P-v Toggle buttons */}
-        <div className="flex items-center bg-white border border-slate-400 p-0.5 text-xs">
-          <button
-            onClick={() => setDiagramType('Ts')}
-            className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
-              diagramType === 'Ts'
-                ? 'bg-black text-white shadow-xs'
-                : 'text-slate-700 hover:text-black hover:bg-slate-100'
-            }`}
-            title="Exibir Diagrama Temperatura-Entropia (T-s)"
-          >
-            T - s
-          </button>
-          <button
-            onClick={() => setDiagramType('Pv')}
-            className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
-              diagramType === 'Pv'
-                ? 'bg-black text-white shadow-xs'
-                : 'text-slate-700 hover:text-black hover:bg-slate-100'
-            }`}
-            title="Exibir Diagrama Pressão-Volume (P-v)"
-          >
-            P - v
-          </button>
-        </div>
+        {/* T-s and P-v Toggle buttons only for Fluids */}
+        {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && (
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 text-xs">
+            <button
+              onClick={() => setDiagramType('Ts')}
+              className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
+                diagramType === 'Ts'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-slate-700 hover:text-black hover:bg-slate-100'
+              }`}
+              title="Exibir Diagrama Temperatura-Entropia (T-s)"
+            >
+              T - s
+            </button>
+            <button
+              onClick={() => setDiagramType('Pv')}
+              className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
+                diagramType === 'Pv'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'text-slate-700 hover:text-black hover:bg-slate-100'
+              }`}
+              title="Exibir Diagrama Pressão-Volume (P-v)"
+            >
+              P - v
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* SVG Canvas with Clean White Engineering Background */}
+      {/* SVG Canvas with Clean Engineering Look and Halo Anti-Collision */}
       <div className="bg-white border border-slate-300 p-1 flex items-center justify-center overflow-hidden">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-h-[360px]">
-          {/* Main Axes lines */}
+          {/* Main Coordinate Axes */}
           <line
-            x1={padding}
-            y1={height - padding}
-            x2={width - padding}
-            y2={height - padding}
+            x1={padL}
+            y1={height - padB}
+            x2={width - padR}
+            y2={height - padB}
             stroke="#0f172a"
             strokeWidth="1.5"
           />
           <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={height - padding}
+            x1={padL}
+            y1={padT}
+            x2={padL}
+            y2={height - padB}
             stroke="#0f172a"
             strokeWidth="1.5"
           />
 
-          {diagramType === 'Ts' ? (
-            /* ==================== T - s DIAGRAM ==================== */
+          {/* =========================================================================
+              VIEW A: PSYCHROMETRIC CHART
+             ========================================================================= */}
+          {category === 'PSYCHROMETRICS' && (
             <>
-              {/* T Horizontal Grid Lines */}
-              {tTicks.map((T) => (
+              {/* Horizontal w Gridlines */}
+              {[5, 10, 15, 20, 25, 30].map((wg) => (
+                <g key={wg}>
+                  <line
+                    x1={padL}
+                    y1={toYPsych(wg)}
+                    x2={width - padR}
+                    y2={toYPsych(wg)}
+                    stroke="#f1f5f9"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={padL - 8}
+                    y={toYPsych(wg) + 4}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {wg}
+                  </text>
+                </g>
+              ))}
+
+              {/* Vertical Tdb Gridlines */}
+              {[-10, 0, 10, 20, 30, 40, 50].map((t) => (
+                <g key={t}>
+                  <line
+                    x1={toXPsych(t)}
+                    y1={padT}
+                    x2={toXPsych(t)}
+                    y2={height - padB}
+                    stroke="#f1f5f9"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={toXPsych(t)}
+                    y={height - padB + 16}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {t}°
+                  </text>
+                </g>
+              ))}
+
+              {/* Relative Humidity Curves (10%, 30%, 50%, 70%, 100%) */}
+              {[10, 30, 50, 70, 100].map((rh) => (
+                <g key={rh}>
+                  <path
+                    d={generateRhPath(rh)}
+                    fill="none"
+                    stroke={rh === 100 ? '#0284c7' : '#94a3b8'}
+                    strokeWidth={rh === 100 ? '2' : '1'}
+                    strokeDasharray={rh === 100 ? 'none' : '3 3'}
+                  />
+                  {/* RH Curve Label */}
+                  <text
+                    x={toXPsych(38)}
+                    y={toYPsych(Math.min(28, (rh / 100) * 45))}
+                    fill={rh === 100 ? '#0284c7' : '#64748b'}
+                    fontSize="8"
+                    fontWeight="bold"
+                    stroke="white"
+                    strokeWidth="3"
+                    paintOrder="stroke fill"
+                  >
+                    φ={rh}%
+                  </text>
+                </g>
+              ))}
+
+              {/* Plotted Psychrometric State Points */}
+              {plottedStates.map((st, idx) => {
+                const cx = toXPsych(st.Tdb ?? st.T);
+                const cy = toYPsych((st.w ?? 0) * 1000);
+                return (
+                  <g key={st.id}>
+                    <circle cx={cx} cy={cy} r="4.5" fill="#000000" stroke="#ffffff" strokeWidth="1.5" />
+                    <rect
+                      x={cx - 16}
+                      y={cy - 22}
+                      width="32"
+                      height="14"
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={cx}
+                      y={cy - 12}
+                      fill="#000000"
+                      fontSize="9"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      fontFamily="JetBrains Mono"
+                    >
+                      #{idx + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Axis Labels */}
+              <text
+                x={(width - padL - padR) / 2 + padL}
+                y={height - 12}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Temperatura de Bulbo Seco, Tbs [°C]
+              </text>
+              <text
+                x={-(height - padT - padB) / 2 - padT}
+                y={18}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                transform="rotate(-90)"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Razão de Umidade, w [g água / kg ar seco]
+              </text>
+            </>
+          )}
+
+          {/* =========================================================================
+              VIEW B: COMPRESSIBILITY CHART (Z vs Pr)
+             ========================================================================= */}
+          {category === 'COMPRESSIBILITY' && (
+            <>
+              {/* Horizontal Z Gridlines */}
+              {[0.2, 0.4, 0.6, 0.8, 1.0, 1.2].map((z) => (
+                <g key={z}>
+                  <line
+                    x1={padL}
+                    y1={toYCompr(z)}
+                    x2={width - padR}
+                    y2={toYCompr(z)}
+                    stroke={z === 1.0 ? '#cbd5e1' : '#f1f5f9'}
+                    strokeWidth={z === 1.0 ? '1.5' : '1'}
+                    strokeDasharray={z === 1.0 ? 'none' : '2 2'}
+                  />
+                  <text
+                    x={padL - 8}
+                    y={toYCompr(z) + 4}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {z.toFixed(1)}
+                  </text>
+                </g>
+              ))}
+
+              {/* Vertical Pr Gridlines */}
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pr) => (
+                <g key={pr}>
+                  <line
+                    x1={toXCompr(pr)}
+                    y1={padT}
+                    x2={toXCompr(pr)}
+                    y2={height - padB}
+                    stroke="#f1f5f9"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={toXCompr(pr)}
+                    y={height - padB + 16}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {pr}
+                  </text>
+                </g>
+              ))}
+
+              {/* Reduced Isotherms (Tr = 0.8, 1.0, 1.2, 1.5, 2.0) */}
+              {[0.8, 1.0, 1.2, 1.5, 2.0].map((tr) => (
+                <g key={tr}>
+                  <path
+                    d={generateZCurve(tr)}
+                    fill="none"
+                    stroke="#0284c7"
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x={toXCompr(7.5)}
+                    y={toYCompr(Math.min(1.15, 1 + (0.083 - 0.422 / Math.pow(tr, 1.6)) * (7.5 / tr))) - 4}
+                    fill="#0284c7"
+                    fontSize="8"
+                    fontWeight="bold"
+                    stroke="white"
+                    strokeWidth="3"
+                    paintOrder="stroke fill"
+                  >
+                    Tr={tr}
+                  </text>
+                </g>
+              ))}
+
+              {/* Plotted States */}
+              {plottedStates.map((st, idx) => {
+                const cx = toXCompr(st.Pr_red ?? st.P);
+                const cy = toYCompr(st.Z ?? 1.0);
+                return (
+                  <g key={st.id}>
+                    <circle cx={cx} cy={cy} r="4.5" fill="#000000" stroke="#ffffff" strokeWidth="1.5" />
+                    <rect
+                      x={cx - 16}
+                      y={cy - 22}
+                      width="32"
+                      height="14"
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={cx}
+                      y={cy - 12}
+                      fill="#000000"
+                      fontSize="9"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      fontFamily="JetBrains Mono"
+                    >
+                      #{idx + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Axis Labels */}
+              <text
+                x={(width - padL - padR) / 2 + padL}
+                y={height - 12}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Pressão Reduzida, Pr = P / Pc
+              </text>
+              <text
+                x={-(height - padT - padB) / 2 - padT}
+                y={18}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                transform="rotate(-90)"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Fator de Compressibilidade, Z
+              </text>
+            </>
+          )}
+
+          {/* =========================================================================
+              VIEW C: AIR & IDEAL GASES (T-s DIAGRAM)
+             ========================================================================= */}
+          {(category === 'AIR' || category === 'IDEAL_GASES') && (
+            <>
+              {/* Horizontal T Grid */}
+              {[100, 200, 300, 400].map((T) => (
                 <g key={T}>
                   <line
-                    x1={padding}
+                    x1={padL}
                     y1={toYTs(T)}
-                    x2={width - padding}
+                    x2={width - padR}
                     y2={toYTs(T)}
                     stroke="#e2e8f0"
                     strokeDasharray="2 2"
                   />
                   <text
-                    x={padding - 8}
+                    x={padL - 8}
+                    y={toYTs(T) + 4}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {T}°C
+                  </text>
+                </g>
+              ))}
+
+              {/* Vertical s Grid */}
+              {[2, 4, 6, 8].map((s) => (
+                <g key={s}>
+                  <line
+                    x1={toXTs(s)}
+                    y1={padT}
+                    x2={toXTs(s)}
+                    y2={height - padB}
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={toXTs(s)}
+                    y={height - padB + 16}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {s}
+                  </text>
+                </g>
+              ))}
+
+              {/* Plotted States with Clean Non-overlapping Badges */}
+              {plottedStates.map((st, idx) => {
+                const cx = toXTs(st.s || 6.8);
+                const cy = toYTs(st.T);
+                return (
+                  <g key={st.id}>
+                    <circle cx={cx} cy={cy} r="4.5" fill="#000000" stroke="#ffffff" strokeWidth="1.5" />
+                    <rect
+                      x={cx - 16}
+                      y={cy - 22}
+                      width="32"
+                      height="14"
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={cx}
+                      y={cy - 12}
+                      fill="#000000"
+                      fontSize="9"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      fontFamily="JetBrains Mono"
+                    >
+                      #{idx + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Axis Labels */}
+              <text
+                x={(width - padL - padR) / 2 + padL}
+                y={height - 12}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Entropia Específica, s [kJ/(kg·K)]
+              </text>
+              <text
+                x={-(height - padT - padB) / 2 - padT}
+                y={18}
+                fill="#0f172a"
+                fontSize="11"
+                textAnchor="middle"
+                transform="rotate(-90)"
+                fontFamily="sans-serif"
+                fontWeight="600"
+              >
+                Temperatura, T [°C]
+              </text>
+            </>
+          )}
+
+          {/* =========================================================================
+              VIEW D: FLUIDS (WATER, REFRIGERANTS, CRYOGENICS)
+             ========================================================================= */}
+          {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Ts' && (
+            <>
+              {/* T Horizontal Grid Lines */}
+              {[100, 200, 300, 400].map((T) => (
+                <g key={T}>
+                  <line
+                    x1={padL}
+                    y1={toYTs(T)}
+                    x2={width - padR}
+                    y2={toYTs(T)}
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={padL - 8}
                     y={toYTs(T) + 4}
                     fill="#64748b"
                     fontSize="10"
@@ -214,19 +641,19 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               ))}
 
               {/* s Vertical Grid Lines */}
-              {sTicks.map((s) => (
+              {[2, 4, 6, 8].map((s) => (
                 <g key={s}>
                   <line
                     x1={toXTs(s)}
-                    y1={padding}
+                    y1={padT}
                     x2={toXTs(s)}
-                    y2={height - padding}
+                    y2={height - padB}
                     stroke="#e2e8f0"
                     strokeDasharray="2 2"
                   />
                   <text
                     x={toXTs(s)}
-                    y={height - padding + 15}
+                    y={height - padB + 16}
                     fill="#64748b"
                     fontSize="10"
                     textAnchor="middle"
@@ -241,16 +668,19 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               <path d={domePathTs} fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="square" />
               <path d={`${domePathTs} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
-              {/* Critical Point Marker (T-s) */}
+              {/* Critical Point Marker (T-s) with White Halo to prevent overlapping curve */}
               <circle cx={toXTs(4.412)} cy={toYTs(373.95)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
                 x={toXTs(4.412)}
-                y={toYTs(373.95) - 8}
+                y={toYTs(373.95) - 12}
                 fill="#0f172a"
                 fontSize="9"
                 textAnchor="middle"
                 fontFamily="JetBrains Mono"
                 fontWeight="bold"
+                stroke="white"
+                strokeWidth="4"
+                paintOrder="stroke fill"
               >
                 PONTO CRÍTICO
               </text>
@@ -273,18 +703,27 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Plotted State Points */}
+              {/* Plotted State Points with Non-overlapping Badges */}
               {plottedStates.map((st, idx) => {
                 const cx = toXTs(st.s);
                 const cy = toYTs(st.T);
                 return (
-                  <g key={st.id} className="cursor-pointer group">
+                  <g key={st.id} className="cursor-pointer">
                     <circle cx={cx} cy={cy} r="4.5" fill="#000000" stroke="#ffffff" strokeWidth="1.5" />
+                    <rect
+                      x={cx - 16}
+                      y={cy - 22}
+                      width="32"
+                      height="14"
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth="1"
+                    />
                     <text
                       x={cx}
-                      y={cy - 8}
+                      y={cy - 12}
                       fill="#000000"
-                      fontSize="10"
+                      fontSize="9"
                       fontWeight="bold"
                       textAnchor="middle"
                       fontFamily="JetBrains Mono"
@@ -295,9 +734,9 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axes Labels */}
+              {/* Axes Labels with safe margin */}
               <text
-                x={width / 2}
+                x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
                 fill="#0f172a"
                 fontSize="11"
@@ -308,8 +747,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 Entropia Específica, s [kJ/(kg·K)]
               </text>
               <text
-                x={-height / 2}
-                y={16}
+                x={-(height - padT - padB) / 2 - padT}
+                y={18}
                 fill="#0f172a"
                 fontSize="11"
                 textAnchor="middle"
@@ -320,22 +759,26 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 Temperatura, T [°C]
               </text>
             </>
-          ) : (
-            /* ==================== P - v DIAGRAM ==================== */
+          )}
+
+          {/* =========================================================================
+              VIEW E: FLUIDS P-v DIAGRAM
+             ========================================================================= */}
+          {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Pv' && (
             <>
               {/* P Horizontal Grid Lines */}
-              {pTicks.map((P) => (
+              {[5, 10, 15, 20, 25].map((P) => (
                 <g key={P}>
                   <line
-                    x1={padding}
+                    x1={padL}
                     y1={toYPv(P)}
-                    x2={width - padding}
+                    x2={width - padR}
                     y2={toYPv(P)}
                     stroke="#e2e8f0"
                     strokeDasharray="2 2"
                   />
                   <text
-                    x={padding - 8}
+                    x={padL - 8}
                     y={toYPv(P) + 4}
                     fill="#64748b"
                     fontSize="10"
@@ -348,19 +791,25 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               ))}
 
               {/* v Vertical Grid Lines (Log Scale) */}
-              {vTicks.map((vt) => (
+              {[
+                { val: 0.001, label: '0,001' },
+                { val: 0.01, label: '0,01' },
+                { val: 0.1, label: '0,1' },
+                { val: 1, label: '1' },
+                { val: 10, label: '10' },
+              ].map((vt) => (
                 <g key={vt.val}>
                   <line
                     x1={toXPv(vt.val)}
-                    y1={padding}
+                    y1={padT}
                     x2={toXPv(vt.val)}
-                    y2={height - padding}
+                    y2={height - padB}
                     stroke="#e2e8f0"
                     strokeDasharray="2 2"
                   />
                   <text
                     x={toXPv(vt.val)}
-                    y={height - padding + 15}
+                    y={height - padB + 16}
                     fill="#64748b"
                     fontSize="10"
                     textAnchor="middle"
@@ -375,16 +824,19 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               <path d={domePathPv} fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="square" />
               <path d={`${domePathPv} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
-              {/* Critical Point Marker (P-v) */}
+              {/* Critical Point Marker (P-v) with halo */}
               <circle cx={toXPv(0.003106)} cy={toYPv(22.064)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
                 x={toXPv(0.003106)}
-                y={toYPv(22.064) - 8}
+                y={toYPv(22.064) - 12}
                 fill="#0f172a"
                 fontSize="9"
                 textAnchor="middle"
                 fontFamily="JetBrains Mono"
                 fontWeight="bold"
+                stroke="white"
+                strokeWidth="4"
+                paintOrder="stroke fill"
               >
                 PONTO CRÍTICO
               </text>
@@ -407,18 +859,27 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Plotted State Points */}
+              {/* Plotted State Points with clean badges */}
               {plottedStates.map((st, idx) => {
                 const cx = toXPv(st.v);
                 const cy = toYPv(st.P_MPa);
                 return (
-                  <g key={st.id} className="cursor-pointer group">
+                  <g key={st.id} className="cursor-pointer">
                     <circle cx={cx} cy={cy} r="4.5" fill="#000000" stroke="#ffffff" strokeWidth="1.5" />
+                    <rect
+                      x={cx - 16}
+                      y={cy - 22}
+                      width="32"
+                      height="14"
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth="1"
+                    />
                     <text
                       x={cx}
-                      y={cy - 8}
+                      y={cy - 12}
                       fill="#000000"
-                      fontSize="10"
+                      fontSize="9"
                       fontWeight="bold"
                       textAnchor="middle"
                       fontFamily="JetBrains Mono"
@@ -431,7 +892,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
 
               {/* Axes Labels */}
               <text
-                x={width / 2}
+                x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
                 fill="#0f172a"
                 fontSize="11"
@@ -442,8 +903,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 Volume Específico, v [m³/kg] (Escala Logarítmica)
               </text>
               <text
-                x={-height / 2}
-                y={16}
+                x={-(height - padT - padB) / 2 - padT}
+                y={18}
                 fill="#0f172a"
                 fontSize="11"
                 textAnchor="middle"
@@ -463,11 +924,15 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 bg-sky-600 inline-block"></span>
-            Domo de Saturação
+            {category === 'PSYCHROMETRICS'
+              ? 'Curvas de Saturação e UR'
+              : category === 'COMPRESSIBILITY'
+              ? 'Isotermas Reduzidas (Tr)'
+              : 'Domo de Saturação'}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 bg-black inline-block"></span>
-            Estados do Ciclo
+            Estados Registrados
           </span>
         </div>
         <span>Total: {plottedStates.length} ponto(s) plotados</span>

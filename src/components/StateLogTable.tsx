@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ThermodynamicState, UnitSystem } from '../types/thermo';
+import { ThermodynamicState, UnitSystem, SubstanceCategory } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
 import { Download, Trash2, Copy, Check, Calculator } from 'lucide-react';
 
 interface StateLogTableProps {
   states: ThermodynamicState[];
   unitSystem: UnitSystem;
+  activeCategory: SubstanceCategory;
   onClear: () => void;
   onDeleteState: (id: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
@@ -14,9 +15,9 @@ interface StateLogTableProps {
 export const StateLogTable: React.FC<StateLogTableProps> = ({
   states,
   unitSystem,
+  activeCategory,
   onClear,
   onDeleteState,
-  onUpdateLabel,
 }) => {
   const [copied, setCopied] = useState(false);
   const [stateAIdx, setStateAIdx] = useState<number>(0);
@@ -24,18 +25,18 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  const formatNumber = (num: number, minDecimals: number = 2, maxDecimals: number = 4) => {
-    if (isNaN(num) || num === null || num === undefined) return '';
+  const formatNumber = (num: number | undefined | null, minDec: number = 2, maxDec: number = 4) => {
+    if (num === null || num === undefined || isNaN(num)) return '-';
     if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(3);
     return num.toLocaleString('pt-BR', {
       useGrouping: false,
-      minimumFractionDigits: minDecimals,
-      maximumFractionDigits: maxDecimals,
+      minimumFractionDigits: minDec,
+      maximumFractionDigits: maxDec,
     });
   };
 
-  const formatV = (v: number | null) => {
-    if (v === null || isNaN(v)) return '';
+  const formatV = (v: number | undefined | null) => {
+    if (v === null || v === undefined || isNaN(v)) return '-';
     return v.toLocaleString('pt-BR', {
       useGrouping: false,
       minimumFractionDigits: 2,
@@ -45,7 +46,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const exportCSV = () => {
     if (states.length === 0) return;
-    const header = `#;Temperatura (${units.T});Pressão (${units.P});Volume Específico (${units.v});Energia Interna (${units.u});Entalpia Específica (${units.h});Entropia Específica (${units.s});Título (x);Fase\n`;
+    const header = `#;Substância;Temperatura (${units.T});Pressão (${units.P});Volume Específico (${units.v});Energia Interna (${units.u});Entalpia (${units.h});Entropia (${units.s});Título (x);Fase\n`;
     const rows = states.map((s, idx) => {
       const dispT = UnitConverter.fromInternalT(s.T, units.T);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
@@ -54,7 +55,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
       const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
       const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
       const dispX = s.x !== null && s.x !== undefined ? s.x : '';
-      return `${idx + 1};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
+      return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
     }).join('\n');
 
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -69,8 +70,8 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const copyTableMarkdown = () => {
     if (states.length === 0) return;
-    let md = `| # | Temperatura [${units.T}] | Pressão [${units.P}] | Volume Específico [${units.v}] | Energia Interna [${units.u}] | Entalpia Específica [${units.h}] | Entropia Específica [${units.s}] | Título (x) | Fase |\n`;
-    md += `|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
+    let md = `| # | Substância | Temperatura [${units.T}] | Pressão [${units.P}] | Volume [${units.v}] | Energia [${units.u}] | Entalpia [${units.h}] | Entropia [${units.s}] | Título | Fase |\n`;
+    md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
     states.forEach((s, idx) => {
       const dispT = formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2);
       const dispP = formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4);
@@ -79,7 +80,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
       const dispH = formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2, 2);
       const dispS = formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 4);
       const dispX = s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : '';
-      md += `| ${idx + 1} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
+      md += `| ${idx + 1} | ${s.substanceName} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
     });
 
     navigator.clipboard.writeText(md);
@@ -87,7 +88,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Delta calculations between two selected states
+  // Delta calculations
   const stateA = states[stateAIdx] || states[0];
   const stateB = states[stateBIdx] || states[1];
   const deltaH = stateA && stateB ? stateB.h - stateA.h : 0;
@@ -140,7 +141,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
         </div>
       </div>
 
-      {/* Main Table with the EXACT 9 CATT3 columns in Portuguese */}
+      {/* Main Table */}
       {states.length === 0 ? (
         <div className="p-8 text-center border border-dashed border-slate-300 bg-slate-50 text-slate-400 text-xs">
           Nenhum estado adicionado ao log ainda. Calcule propriedades e adicione ao log.
@@ -149,21 +150,129 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
         <div className="border border-slate-400 overflow-x-auto max-h-[280px]">
           <table className="w-full text-left text-xs font-mono border-collapse">
             <thead className="bg-[#e8e8e8] text-slate-900 border-b border-slate-400 text-[11px] font-bold sticky top-0">
-              <tr>
-                <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume Específico</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia Interna</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia Específica</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia Específica</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Título (x)</th>
-                <th className="py-1.5 px-2 text-left">Fase</th>
-                <th className="py-1.5 px-1 text-center w-8"></th>
-              </tr>
+              {/* Category-Specific Table Headers */}
+              {activeCategory === 'PSYCHROMETRICS' ? (
+                <tr>
+                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
+                  <th className="py-1.5 px-2 text-left border-r border-slate-300">Substância</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Bulbo Seco (Tbs)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Bulbo Úmido (Tbu)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Ponto Orvalho (Tpo)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">UR (%)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">w (g/kg)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume (m³/kg)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (kJ/kg)</th>
+                  <th className="py-1.5 px-1 text-center w-8"></th>
+                </tr>
+              ) : activeCategory === 'COMPRESSIBILITY' ? (
+                <tr>
+                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Tr</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pr</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300 font-bold">Fator Z</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">v'r</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">(h*-h)/RTc</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">(s*-s)/R</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">ln(f/P)</th>
+                  <th className="py-1.5 px-2 text-left">Fase</th>
+                  <th className="py-1.5 px-1 text-center w-8"></th>
+                </tr>
+              ) : activeCategory === 'AIR' ? (
+                <tr>
+                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (h)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia (u)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s°)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pr</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">vr</th>
+                  <th className="py-1.5 px-1 text-center w-8"></th>
+                </tr>
+              ) : (
+                /* Standard Fluid Columns (Water, Refrigerants, Cryogenics, Ideal Gases) */
+                <tr>
+                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
+                  <th className="py-1.5 px-2 text-left border-r border-slate-300">Substância</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia (u)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (h)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s)</th>
+                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Título (x)</th>
+                  <th className="py-1.5 px-2 text-left">Fase</th>
+                  <th className="py-1.5 px-1 text-center w-8"></th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white text-slate-900">
               {states.map((s, idx) => {
+                if (activeCategory === 'PSYCHROMETRICS') {
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
+                      <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate">{s.substanceName}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.Tdb ?? s.T, 2, 2)} °C</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Twb, 2, 2)} °C</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Tdp, 2, 2)} °C</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.RH, 1, 2)}%</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.w ? formatNumber(s.w * 1000, 2, 2) : '-'}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(s.v_psychro ?? s.v)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h_psychro ?? s.h, 2, 2)}</td>
+                      <td className="py-1 px-1 text-center">
+                        <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                if (activeCategory === 'COMPRESSIBILITY') {
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Tr, 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Pr_red, 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold text-black">{formatNumber(s.Z, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.v, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Tr && s.Z ? formatNumber(Math.max(0, (1 - s.Z) * 2.5), 3, 3) : '-'}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Tr && s.Z ? formatNumber(Math.max(0, -Math.log(Math.max(0.01, s.Z)) * 1.5), 3, 3) : '-'}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Z ? formatNumber(s.Z - 1 - Math.log(Math.max(0.01, s.Z)), 3, 3) : '-'}</td>
+                      <td className="py-1 px-2 text-left text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
+                      <td className="py-1 px-1 text-center">
+                        <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                if (activeCategory === 'AIR') {
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.T, 2, 2)} {units.T}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)} {units.P}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.u, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s0, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Pr, 3, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.vr, 2, 3)}</td>
+                      <td className="py-1 px-1 text-center">
+                        <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                /* Standard Fluid & Gas Row */
                 const dispT = UnitConverter.fromInternalT(s.T, units.T);
                 const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
                 const dispV = UnitConverter.fromInternalV(s.v, units.v);
@@ -174,6 +283,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                 return (
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
+                    <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate max-w-[120px]">{s.substanceName}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispT, 2, 2)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200 font-semibold">{formatNumber(dispP, 2, 4)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(dispV)}</td>
@@ -201,7 +311,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
         </div>
       )}
 
-      {/* Cycle / Delta Calculator Widget */}
+      {/* Delta Analysis Calculator */}
       {states.length >= 2 && (
         <div className="bg-slate-50 border border-slate-300 p-2.5 space-y-2 text-xs">
           <div className="flex items-center gap-2 font-bold text-slate-900 uppercase text-[11px]">
@@ -218,7 +328,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                 className="bg-white border border-slate-300 px-2 py-0.5 text-slate-900"
               >
                 {states.map((s, idx) => (
-                  <option key={s.id} value={idx}>#{idx + 1}</option>
+                  <option key={s.id} value={idx}>#{idx + 1} ({s.substanceName})</option>
                 ))}
               </select>
             </div>
@@ -231,7 +341,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                 className="bg-white border border-slate-300 px-2 py-0.5 text-slate-900"
               >
                 {states.map((s, idx) => (
-                  <option key={s.id} value={idx}>#{idx + 1}</option>
+                  <option key={s.id} value={idx}>#{idx + 1} ({s.substanceName})</option>
                 ))}
               </select>
             </div>

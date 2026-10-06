@@ -19,8 +19,8 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
   const tabs: { id: SubstanceCategory; label: string }[] = [
     { id: 'WATER', label: 'Água / Vapor' },
     { id: 'REFRIGERANTS', label: 'Refrigerantes' },
-    { id: 'CRYOGENICS', label: 'Criogenia' },
-    { id: 'AIR', label: 'Ar (Gás Real)' },
+    { id: 'CRYOGENICS', label: 'Criogênicos' },
+    { id: 'AIR', label: 'Ar (Gás Real / A-17)' },
     { id: 'IDEAL_GASES', label: 'Gases Ideais' },
     { id: 'COMPRESSIBILITY', label: 'Compressibilidade (Z)' },
     { id: 'PSYCHROMETRICS', label: 'Psicrometria' },
@@ -57,23 +57,37 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
         })}
       </div>
 
-      {/* Sub-selector if Refrigerants or Ideal Gases */}
-      {(category === 'REFRIGERANTS' || category === 'IDEAL_GASES') && (
+      {/* Sub-selector for Refrigerants, Cryogenics, or Ideal Gases */}
+      {(category === 'REFRIGERANTS' || category === 'CRYOGENICS' || category === 'IDEAL_GASES') && (
         <div className="px-3 py-1 bg-white border-b border-slate-300 flex items-center gap-2 text-xs">
           <span className="text-slate-600 font-bold uppercase text-[10px]">
-            {category === 'REFRIGERANTS' ? 'Fluido Refrigerante:' : 'Gás Ideal:'}
+            {category === 'REFRIGERANTS'
+              ? 'Fluido Refrigerante:'
+              : category === 'CRYOGENICS'
+              ? 'Fluido Criogênico:'
+              : 'Gás Ideal:'}
           </span>
           <select
             value={substanceId}
             onChange={(e) => setSubstanceId(e.target.value)}
-            className="border border-slate-400 px-2 py-0.5 text-xs bg-white text-black font-mono cursor-pointer"
+            className="border border-slate-400 px-2 py-0.5 text-xs bg-white text-black font-mono font-bold cursor-pointer"
           >
-            {category === 'REFRIGERANTS' ? (
+            {category === 'REFRIGERANTS' && (
               <>
-                <option value="r134a">R-134a (Tetrafluoroetano)</option>
-                <option value="r22">R-22 (Clorodifluorometano)</option>
+                <option value="r134a">R-134a (Tetrafluoroetano - CF₃CH₂F)</option>
+                <option value="r22">R-22 (Clorodifluorometano - CHClF₂)</option>
+                <option value="nh3">R-717 (Amônia - NH₃)</option>
               </>
-            ) : (
+            )}
+            {category === 'CRYOGENICS' && (
+              <>
+                <option value="nh3">Amônia Anidra (NH₃)</option>
+                <option value="ch4">Metano Liquefeito (CH₄)</option>
+                <option value="n2">Nitrogênio Criogênico (N₂)</option>
+                <option value="o2">Oxigênio Criogênico (O₂)</option>
+              </>
+            )}
+            {category === 'IDEAL_GASES' && (
               <>
                 <option value="co2">CO₂ (Dióxido de Carbono)</option>
                 <option value="co">CO (Monóxido de Carbono)</option>
