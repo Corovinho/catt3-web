@@ -6,11 +6,13 @@ import {
   UnitSystem,
 } from './types/thermo';
 import { Navbar } from './components/Navbar';
-import { SubstanceSelector } from './components/SubstanceSelector';
-import { PropertiesInput } from './components/PropertiesInput';
-import { CurrentStateDisplay } from './components/CurrentStateDisplay';
+import { MainToolbar } from './components/MainToolbar';
+import { PropertiesBox } from './components/PropertiesBox';
 import { StateLogTable } from './components/StateLogTable';
 import { DiagramView } from './components/DiagramView';
+import { BottomTabs } from './components/BottomTabs';
+import { GeneralPropertiesDialog, InputType } from './components/GeneralPropertiesDialog';
+import { UnitsDialog } from './components/UnitsDialog';
 import { ProcessModal } from './components/ProcessModal';
 import { WaterEngine } from './engine/water';
 import { RefrigerantEngine } from './engine/refrigerants';
@@ -22,44 +24,17 @@ import { UnitConverter } from './engine/units';
 
 export const App: React.FC = () => {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('SI');
-  const [activeView, setActiveView] = useState<'calc' | 'log' | 'diagram'>('calc');
   const [category, setCategory] = useState<SubstanceCategory>('WATER');
   const [substanceId, setSubstanceId] = useState<string>('water');
-  const [mode, setMode] = useState<CalcMode>('GENERAL');
+  const [diagramType, setDiagramType] = useState<'Ts' | 'Pv'>('Ts');
 
-  // General 2-phase inputs (Default: P = 1 bar, T = 100 °C)
-  const [prop1Name, setProp1Name] = useState('P');
-  const [prop1Value, setProp1Value] = useState('1');
-  const [prop2Name, setProp2Name] = useState('T');
-  const [prop2Value, setProp2Value] = useState('100');
+  // Dialog states
+  const [isGeneralPropsOpen, setIsGeneralPropsOpen] = useState(false);
+  const [isUnitsOpen, setIsUnitsOpen] = useState(false);
+  const [isProcessOpen, setIsProcessOpen] = useState(false);
 
-  // Saturation mode inputs
-  const [satBasis, setSatBasis] = useState<'T' | 'P'>('P');
-  const [satBasisValue, setSatBasisValue] = useState('1');
-  const [satSecondProp, setSatSecondProp] = useState<'x' | 'v' | 'u' | 'h' | 's'>('x');
-  const [satSecondValue, setSatSecondValue] = useState('1');
-
-  // Air inputs
-  const [airProp, setAirProp] = useState<'T' | 'h' | 'Pr' | 'u' | 'vr' | 's0'>('T');
-  const [airVal, setAirVal] = useState('300');
-  const [airPressure, setAirPressure] = useState('1');
-
-  // Ideal Gas inputs
-  const [gasT, setGasT] = useState('25');
-  const [gasP, setGasP] = useState('1');
-
-  // Compressibility inputs
-  const [compPr, setCompPr] = useState('1.5');
-  const [compTr, setCompTr] = useState('1.2');
-
-  // Psychrometrics inputs
-  const [psyTdb, setPsyTdb] = useState('25');
-  const [psyMode, setPsyMode] = useState<'RH' | 'Twb' | 'Tdp' | 'w'>('RH');
-  const [psyVal, setPsyVal] = useState('50');
-
-  // State management
+  // States
   const [currentState, setCurrentState] = useState<ThermodynamicState | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [statesLog, setStatesLog] = useState<ThermodynamicState[]>(() => {
     try {
       const saved = localStorage.getItem('catt3_states_log');
@@ -69,9 +44,7 @@ export const App: React.FC = () => {
     }
   });
 
-  const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
-
-  // Save to localStorage on change
+  // Save to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('catt3_states_log', JSON.stringify(statesLog));
@@ -80,97 +53,90 @@ export const App: React.FC = () => {
     }
   }, [statesLog]);
 
-  // Initial calculation on load
+  // Initial calculation on load (Water at 100 C, 0.1 MPa)
   useEffect(() => {
-    handleCalculate();
-  }, [category, substanceId]);
+    try {
+      const initial = WaterEngine.solveGeneral({ T: 100, P_MPa: 0.101325 });
+      setCurrentState(initial);
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  const handleCalculate = () => {
-    setError(null);
+  const handleCalculateFromDialog = (data: {
+    inputType: InputType;
+    T?: number;
+    P?: number;
+    v?: number;
+    h?: number;
+    s?: number;
+    x?: number;
+  }) => {
     try {
       let st: ThermodynamicState;
 
       if (category === 'WATER') {
-        if (mode === 'GENERAL') {
-          const props: any = {};
-          const p1 = parseFloat(prop1Value);
-          const p2 = parseFloat(prop2Value);
-          if (isNaN(p1) || isNaN(p2)) throw new Error('Insira valores numéricos válidos.');
+        const props: any = {};
+        if (data.T !== undefined) props.T = UnitConverter.toInternalT(data.T, UnitConverter.getUnitLabels(unitSystem).T);
+        if (data.P !== undefined) props.P_MPa = UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P);
+        if (data.v !== undefined) props.v = UnitConverter.toInternalV(data.v, UnitConverter.getUnitLabels(unitSystem).v);
+        if (data.h !== undefined) props.h = UnitConverter.toInternalEnergy(data.h, UnitConverter.getUnitLabels(unitSystem).h);
+        if (data.s !== undefined) props.s = UnitConverter.toInternalEntropy(data.s, UnitConverter.getUnitLabels(unitSystem).s);
+        if (data.x !== undefined) props.x = data.x;
 
-          if (prop1Name === 'P') props.P_MPa = UnitConverter.toInternalP(p1, 'bar');
-          else if (prop1Name === 'T') props.T = UnitConverter.toInternalT(p1, 'C');
-          else if (prop1Name === 'h') props.h = UnitConverter.toInternalEnergy(p1, 'kJ/kg');
-          else if (prop1Name === 's') props.s = UnitConverter.toInternalEntropy(p1, 'kJ/kg.K');
-          else if (prop1Name === 'v') props.v = UnitConverter.toInternalV(p1, 'm3/kg');
-          else if (prop1Name === 'x') props.x = Math.max(0, Math.min(1, p1));
-
-          if (prop2Name === 'P') props.P_MPa = UnitConverter.toInternalP(p2, 'bar');
-          else if (prop2Name === 'T') props.T = UnitConverter.toInternalT(p2, 'C');
-          else if (prop2Name === 'h') props.h = UnitConverter.toInternalEnergy(p2, 'kJ/kg');
-          else if (prop2Name === 's') props.s = UnitConverter.toInternalEntropy(p2, 'kJ/kg.K');
-          else if (prop2Name === 'v') props.v = UnitConverter.toInternalV(p2, 'm3/kg');
-          else if (prop2Name === 'x') props.x = Math.max(0, Math.min(1, p2));
-
-          st = WaterEngine.solveGeneral(props);
-        } else {
-          const baseVal = parseFloat(satBasisValue);
-          const secVal = parseFloat(satSecondValue);
-          if (isNaN(baseVal) || isNaN(secVal)) throw new Error('Insira valores numéricos válidos.');
-
-          const internalBase = satBasis === 'P'
-            ? UnitConverter.toInternalP(baseVal, 'bar')
-            : UnitConverter.toInternalT(baseVal, 'C');
-
-          st = WaterEngine.solveSaturation({
-            type: satBasis,
-            value: internalBase,
-            secondProp: satSecondProp,
-            secondVal: secVal,
-          });
-        }
+        st = WaterEngine.solveGeneral(props);
       } else if (category === 'REFRIGERANTS' || category === 'CRYOGENICS') {
-        const val1 = parseFloat(mode === 'GENERAL' ? prop1Value : satBasisValue);
-        const val2 = parseFloat(mode === 'GENERAL' ? prop2Value : satSecondValue);
-        if (isNaN(val1) || isNaN(val2)) throw new Error('Insira valores numéricos válidos.');
+        let type: 'T' | 'P' = 'P';
+        let value = data.P ? UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P) * 10 : 1;
+        let secondProp: any = 'x';
+        let secondVal = data.x ?? 1;
+
+        if (data.inputType.startsWith('1_') || data.inputType.startsWith('2_') || data.inputType.startsWith('3_') || data.inputType.startsWith('4_')) {
+          type = 'T';
+          value = data.T ? UnitConverter.toInternalT(data.T, UnitConverter.getUnitLabels(unitSystem).T) : 25;
+          if (data.v !== undefined) { secondProp = 'v'; secondVal = data.v; }
+          else if (data.s !== undefined) { secondProp = 's'; secondVal = data.s; }
+          else if (data.x !== undefined) { secondProp = 'x'; secondVal = data.x; }
+          else if (data.P !== undefined) { secondProp = 'P'; secondVal = data.P * 10; }
+        } else {
+          type = 'P';
+          value = data.P ? UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P) * 10 : 1;
+          if (data.v !== undefined) { secondProp = 'v'; secondVal = data.v; }
+          else if (data.h !== undefined) { secondProp = 'h'; secondVal = data.h; }
+          else if (data.s !== undefined) { secondProp = 's'; secondVal = data.s; }
+          else if (data.x !== undefined) { secondProp = 'x'; secondVal = data.x; }
+        }
 
         st = RefrigerantEngine.solve(substanceId, {
-          mode,
-          type: (mode === 'GENERAL' ? prop1Name : satBasis) as any,
-          value: val1,
-          secondProp: (mode === 'GENERAL' ? prop2Name : satSecondProp) as any,
-          secondVal: val2,
+          mode: 'GENERAL',
+          type,
+          value,
+          secondProp,
+          secondVal,
         });
       } else if (category === 'AIR') {
-        const v = parseFloat(airVal);
-        const p = parseFloat(airPressure);
-        if (isNaN(v) || isNaN(p)) throw new Error('Insira valores numéricos válidos.');
-        st = AirEngine.solve(airProp as any, v, p);
+        const tVal = data.T ?? 300;
+        st = AirEngine.solve('T', tVal, (data.P ?? 0.1) * 10);
       } else if (category === 'IDEAL_GASES') {
-        const t = parseFloat(gasT);
-        const p = parseFloat(gasP);
-        if (isNaN(t) || isNaN(p)) throw new Error('Insira valores numéricos válidos.');
-        st = IdealGasEngine.solve(substanceId, t, p);
+        const tVal = data.T ?? 25;
+        const pVal = (data.P ?? 0.1) * 10;
+        st = IdealGasEngine.solve(substanceId, tVal, pVal);
       } else if (category === 'COMPRESSIBILITY') {
-        const pr = parseFloat(compPr);
-        const tr = parseFloat(compTr);
-        if (isNaN(pr) || isNaN(tr)) throw new Error('Insira valores numéricos válidos.');
+        const pr = data.P ?? 1.5;
+        const tr = data.T ?? 1.2;
         st = CompressibilityEngine.solve(pr, tr);
       } else if (category === 'PSYCHROMETRICS') {
-        const tdb = parseFloat(psyTdb);
-        const v = parseFloat(psyVal);
-        if (isNaN(tdb) || isNaN(v)) throw new Error('Insira valores numéricos válidos.');
-        st = PsychrometricsEngine.solve({
-          Tdb: tdb,
-          inputMode: psyMode,
-          value: v,
-        });
+        const tdb = data.T ?? 25;
+        const rh = (data.x !== undefined ? data.x * 100 : 50);
+        st = PsychrometricsEngine.solve({ Tdb: tdb, inputMode: 'RH', value: rh });
       } else {
-        throw new Error('Categoria não reconhecida.');
+        throw new Error('Categoria não reconhecida');
       }
 
       setCurrentState(st);
+      handleAddStateToLog(st);
     } catch (err: any) {
-      setError(err.message || 'Erro no cálculo termodinâmico. Verifique os valores de entrada.');
+      alert(err.message || 'Erro ao calcular propriedades.');
     }
   };
 
@@ -186,7 +152,7 @@ export const App: React.FC = () => {
   };
 
   const handleClearLog = () => {
-    if (confirm('Deseja limpar todos os estados do histórico?')) {
+    if (confirm('Deseja limpar todos os valores do log?')) {
       setStatesLog([]);
     }
   };
@@ -199,90 +165,71 @@ export const App: React.FC = () => {
     setStatesLog((prev) => prev.map((s) => (s.id === id ? { ...s, label } : s)));
   };
 
+  const getSubstanceTitle = () => {
+    if (category === 'WATER') return 'Water';
+    if (category === 'REFRIGERANTS') return substanceId === 'r134a' ? 'R-134a' : 'R-22';
+    if (category === 'CRYOGENICS') return 'Ammonia (NH3)';
+    if (category === 'AIR') return 'Air';
+    if (category === 'IDEAL_GASES') return substanceId.toUpperCase();
+    if (category === 'COMPRESSIBILITY') return 'Compressibility';
+    return 'Psychrometrics';
+  };
+
+  const units = UnitConverter.getUnitLabels(unitSystem);
+
+  const statusText = currentState
+    ? `Values: S = ${currentState.s.toFixed(4)} ${units.s}; T = ${currentState.T.toFixed(2)} ${units.T}; P = ${currentState.P_MPa.toFixed(4)} ${units.P}`
+    : 'Pronto para calcular.';
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-black selection:text-white">
+    <div className="min-h-screen bg-[#f4f4f4] text-slate-900 flex flex-col font-sans select-none">
+      {/* Header with Minimalist Phase Diagram Logo */}
       <Navbar
         unitSystem={unitSystem}
         setUnitSystem={setUnitSystem}
-        activeView={activeView}
-        setActiveView={setActiveView}
+        activeView="calc"
+        setActiveView={() => {}}
         logCount={statesLog.length}
-        onOpenProcess={() => setIsProcessModalOpen(true)}
+        onOpenProcess={() => setIsProcessOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4">
-        {/* Substance Navigation */}
-        <SubstanceSelector
-          category={category}
-          setCategory={setCategory}
-          substanceId={substanceId}
-          setSubstanceId={setSubstanceId}
-        />
+      {/* Main Menu & Toolbar matching Image 3 */}
+      <MainToolbar
+        onOpenCalculate={() => setIsGeneralPropsOpen(true)}
+        onOpenUnits={() => setIsUnitsOpen(true)}
+        onOpenProcess={() => setIsProcessOpen(true)}
+        onAddCurrentState={() => currentState && handleAddStateToLog(currentState)}
+        onClearLog={handleClearLog}
+        diagramType={diagramType}
+        setDiagramType={setDiagramType}
+        activeSubstanceName={getSubstanceTitle()}
+      />
 
-        {/* View: CALCULATOR */}
-        {activeView === 'calc' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-            {/* Input Column */}
-            <div className="lg:col-span-5 space-y-3">
-              <PropertiesInput
-                category={category}
-                mode={mode}
-                setMode={setMode}
-                unitSystem={unitSystem}
-                prop1Name={prop1Name}
-                setProp1Name={setProp1Name}
-                prop1Value={prop1Value}
-                setProp1Value={setProp1Value}
-                prop2Name={prop2Name}
-                setProp2Name={setProp2Name}
-                prop2Value={prop2Value}
-                setProp2Value={setProp2Value}
-                satBasis={satBasis}
-                setSatBasis={setSatBasis}
-                satBasisValue={satBasisValue}
-                setSatBasisValue={setSatBasisValue}
-                satSecondProp={satSecondProp}
-                setSatSecondProp={setSatSecondProp}
-                satSecondValue={satSecondValue}
-                setSatSecondValue={setSatSecondValue}
-                airProp={airProp}
-                setAirProp={setAirProp}
-                airVal={airVal}
-                setAirVal={setAirVal}
-                airPressure={airPressure}
-                setAirPressure={setAirPressure}
-                gasT={gasT}
-                setGasT={setGasT}
-                gasP={gasP}
-                setGasP={setGasP}
-                compPr={compPr}
-                setCompPr={setCompPr}
-                compTr={compTr}
-                setCompTr={setCompTr}
-                psyTdb={psyTdb}
-                setPsyTdb={setPsyTdb}
-                psyMode={psyMode}
-                setPsyMode={setPsyMode}
-                psyVal={psyVal}
-                setPsyVal={setPsyVal}
-                onCalculate={handleCalculate}
-                error={error}
-              />
-            </div>
-
-            {/* Results Column */}
-            <div className="lg:col-span-7 space-y-3">
-              <CurrentStateDisplay
-                state={currentState}
-                unitSystem={unitSystem}
-                onAddState={handleAddStateToLog}
-              />
-            </div>
+      {/* Main Workspace matching CATT3 Screen in Image 3 */}
+      <div className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 space-y-3">
+        {/* UPPER SECTION: Split Left (Properties Box) & Right (Diagram) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
+          {/* Upper Left: Properties Box (Image 3) */}
+          <div className="md:col-span-5 flex flex-col">
+            <PropertiesBox
+              state={currentState}
+              unitSystem={unitSystem}
+              onOpenCalculate={() => setIsGeneralPropsOpen(true)}
+              onAddState={handleAddStateToLog}
+            />
           </div>
-        )}
 
-        {/* View: LOG / CYCLES SPREADSHEET */}
-        {activeView === 'log' && (
+          {/* Upper Right: T-S / P-v Diagram (Image 3) */}
+          <div className="md:col-span-7 flex flex-col">
+            <DiagramView
+              states={statesLog}
+              currentSubstance={substanceId}
+            />
+          </div>
+        </div>
+
+        {/* LOWER SECTION: Spreadsheet Log Table (Image 3) */}
+        <div>
           <StateLogTable
             states={statesLog}
             unitSystem={unitSystem}
@@ -290,26 +237,39 @@ export const App: React.FC = () => {
             onDeleteState={handleDeleteState}
             onUpdateLabel={handleUpdateLabel}
           />
-        )}
+        </div>
+      </div>
 
-        {/* View: DIAGRAM */}
-        {activeView === 'diagram' && (
-          <DiagramView
-            states={statesLog}
-            currentSubstance={substanceId}
-          />
-        )}
-      </main>
+      {/* BOTTOM SECTION: Substance Tabs & Status Bar (Image 3) */}
+      <BottomTabs
+        category={category}
+        setCategory={setCategory}
+        substanceId={substanceId}
+        setSubstanceId={setSubstanceId}
+        statusText={statusText}
+      />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-3 px-4 text-center text-xs text-slate-500 font-mono">
-        <p>CATT3 Web &bull; Computer-Aided Thermodynamic Tables 3 &bull; Formulações IAPWS-IF97 &bull; Padrão NIST &bull; ASHRAE</p>
-      </footer>
+      {/* DIALOGS: General Properties (Image 1) */}
+      <GeneralPropertiesDialog
+        isOpen={isGeneralPropsOpen}
+        onClose={() => setIsGeneralPropsOpen(false)}
+        unitSystem={unitSystem}
+        onCalculate={handleCalculateFromDialog}
+        substanceName={getSubstanceTitle()}
+      />
 
-      {/* Process Wizard Modal */}
+      {/* DIALOGS: Units (Image 2) */}
+      <UnitsDialog
+        isOpen={isUnitsOpen}
+        onClose={() => setIsUnitsOpen(false)}
+        currentUnitSystem={unitSystem}
+        onSelectUnitSystem={setUnitSystem}
+      />
+
+      {/* DIALOGS: Process Plotter Wizard */}
       <ProcessModal
-        isOpen={isProcessModalOpen}
-        onClose={() => setIsProcessModalOpen(false)}
+        isOpen={isProcessOpen}
+        onClose={() => setIsProcessOpen(false)}
         currentState={currentState}
         onAddState={handleAddStateToLog}
       />
