@@ -18,17 +18,24 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
 }) => {
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  const formatNumber = (num: number, maxDecimals: number = 4) => {
+  const formatNumber = (num: number, minDecimals: number = 2, maxDecimals: number = 4) => {
     if (isNaN(num) || num === null || num === undefined) return '';
     if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(4);
-    // Don't force trailing zeroes if integer or fewer decimals, up to maxDecimals
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals });
+    return num.toLocaleString('pt-BR', {
+      useGrouping: false,
+      minimumFractionDigits: minDecimals,
+      maximumFractionDigits: maxDecimals,
+    });
   };
 
   const formatV = (v: number | null) => {
     if (v === null || isNaN(v)) return '';
-    if (v >= 0.05) return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
-    return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 });
+    // High-precision IAPWS-IF97 specific volume without thousand dot
+    return v.toLocaleString('pt-BR', {
+      useGrouping: false,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    });
   };
 
   const dispT = state ? UnitConverter.fromInternalT(state.T, units.T) : null;
@@ -62,7 +69,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">T</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispT !== null ? formatNumber(dispT, 2) : '-'}
+            {dispT !== null ? formatNumber(dispT, 2, 2) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.T}</span>
         </div>
@@ -71,7 +78,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">P</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispP !== null ? formatNumber(dispP, 4) : '-'}
+            {dispP !== null ? formatNumber(dispP, 2, 4) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.P}</span>
         </div>
@@ -89,7 +96,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">U</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispU !== null ? formatNumber(dispU, 2) : '-'}
+            {dispU !== null ? formatNumber(dispU, 2, 2) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.u}</span>
         </div>
@@ -98,7 +105,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">H</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispH !== null ? formatNumber(dispH, 2) : '-'}
+            {dispH !== null ? formatNumber(dispH, 2, 2) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.h}</span>
         </div>
@@ -107,7 +114,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">S</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispS !== null ? formatNumber(dispS, 4) : '-'}
+            {dispS !== null ? formatNumber(dispS, 3, 4) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.s}</span>
         </div>
@@ -116,7 +123,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">X</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispX !== null ? formatNumber(dispX, 4) : ''}
+            {dispX !== null ? formatNumber(dispX, 4, 4) : ''}
           </span>
           <span className="w-16 text-right text-slate-400 text-[11px]">{dispX !== null ? '' : ''}</span>
         </div>

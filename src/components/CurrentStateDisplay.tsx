@@ -37,7 +37,7 @@ export const CurrentStateDisplay: React.FC<CurrentStateDisplayProps> = ({
   const formatNumber = (num: number, decimals: number = 4) => {
     if (isNaN(num) || num === null || num === undefined) return '-';
     if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(4);
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+    return num.toLocaleString('pt-BR', { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: decimals });
   };
 
   const getPhaseBadge = (phase: string) => {

@@ -24,16 +24,23 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  const formatNumber = (num: number, maxDecimals: number = 4) => {
+  const formatNumber = (num: number, minDecimals: number = 2, maxDecimals: number = 4) => {
     if (isNaN(num) || num === null || num === undefined) return '';
     if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(3);
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals });
+    return num.toLocaleString('pt-BR', {
+      useGrouping: false,
+      minimumFractionDigits: minDecimals,
+      maximumFractionDigits: maxDecimals,
+    });
   };
 
   const formatV = (v: number | null) => {
     if (v === null || isNaN(v)) return '';
-    if (v >= 0.05) return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
-    return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 });
+    return v.toLocaleString('pt-BR', {
+      useGrouping: false,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    });
   };
 
   const exportCSV = () => {
@@ -167,14 +174,14 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                 return (
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispT, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-semibold">{formatNumber(dispP, 4)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispT, 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200 font-semibold">{formatNumber(dispP, 2, 4)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(dispV)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispU, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispH, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispS, 4)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispU, 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispH, 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispS, 3, 4)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200 text-slate-800">
-                      {s.x !== null && s.x !== undefined ? formatNumber(s.x, 4) : ''}
+                      {s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : ''}
                     </td>
                     <td className="py-1 px-2 text-left text-[11px] truncate">{s.phase}</td>
                     <td className="py-1 px-1 text-center">
