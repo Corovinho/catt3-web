@@ -157,4 +157,20 @@ export class UnitConverter {
         };
     }
   }
+
+  static formatPhasePtBr(phase: string): string {
+    switch (phase) {
+      case 'Superheated Vapor': return 'Vapor Superaquecido';
+      case 'Saturated Mixture': return 'Mistura Saturada (L+V)';
+      case 'Saturated Liquid': return 'Líquido Saturado';
+      case 'Saturated Vapor': return 'Vapor Saturado Seco';
+      case 'Subcooled Liquid': return 'Líquido Comprimido';
+      case 'Supercritical':
+      case 'Supercritical Fluid': return 'Fluido Supercrítico';
+      case 'Gas': return 'Gás';
+      case 'Moist Air': return 'Ar Úmido';
+      default: return phase;
+    }
+  }
 }
+

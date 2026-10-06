@@ -102,7 +102,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
         {/* Title bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            General Properties - {substanceName}
+            Propriedades Gerais - {substanceName}
           </span>
           <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
             <X className="w-4 h-4 text-slate-800" />
@@ -114,7 +114,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
           {/* Left panel: Input Type */}
           <div className="sm:col-span-5 border border-slate-400 bg-white p-3 space-y-1.5">
             <span className="block font-bold text-[11px] border-b border-slate-300 pb-1 mb-2 uppercase text-slate-700">
-              Input Type
+              Tipo de Entrada
             </span>
             {[
               { id: '1_TP', label: '1. T & P' },
@@ -150,7 +150,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Temperature */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isTEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Temperature
+                Temperatura
               </span>
               <input
                 type="number"
@@ -169,7 +169,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Pressure */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isPEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Pressure
+                Pressão
               </span>
               <input
                 type="number"
@@ -188,7 +188,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Volume */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isVEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Specific Volume
+                Volume Específico
               </span>
               <input
                 type="number"
@@ -207,7 +207,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Enthalpy */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isHEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Specific Enthalpy
+                Entalpia Específica
               </span>
               <input
                 type="number"
@@ -226,7 +226,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Entropy */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isSEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Specific Entropy
+                Entropia Específica
               </span>
               <input
                 type="number"
@@ -245,7 +245,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Quality */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isXEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Quality
+                Título (x)
               </span>
               <input
                 type="number"
@@ -280,15 +280,15 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
-            <span>Cancel</span>
+            <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('Selecione o Input Type na esquerda (1 a 8). Os 2 campos correspondentes serão habilitados na direita para você inserir os valores.')}
+            onClick={() => alert('Selecione o Tipo de Entrada na esquerda (1 a 8). Os 2 campos correspondentes serão habilitados na direita para você inserir os valores.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
-            <span>Help</span>
+            <span>Ajuda</span>
           </button>
         </div>
       </div>

@@ -28,19 +28,19 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
       <div className="flex items-center gap-4 px-3 py-1 text-xs border-b border-slate-300 text-slate-800 bg-white">
         <div className="flex items-center gap-3">
           <button onClick={onOpenCalculate} className="hover:bg-slate-200 px-1.5 py-0.5">
-            File
+            Arquivo
           </button>
           <button onClick={onClearLog} className="hover:bg-slate-200 px-1.5 py-0.5">
-            Edit
+            Editar
           </button>
           <button onClick={onOpenCalculate} className="hover:bg-slate-200 px-1.5 py-0.5">
-            Tables/Substances
+            Tabelas / Substâncias
           </button>
-          <button onClick={onOpenCalculate} className="hover:bg-slate-200 px-1.5 py-0.5">
-            Options
+          <button onClick={onOpenUnits} className="hover:bg-slate-200 px-1.5 py-0.5">
+            Opções
           </button>
-          <button onClick={() => alert('CATT3 Web - Computer-Aided Thermodynamic Tables 3. Desenvolvido para cálculo termodinâmico de precisão.')} className="hover:bg-slate-200 px-1.5 py-0.5">
-            Help
+          <button onClick={() => alert('CATT3 Web - Computer-Aided Thermodynamic Tables 3.\nVersão em Português para Termodinâmica de Engenharia.')} className="hover:bg-slate-200 px-1.5 py-0.5">
+            Ajuda
           </button>
         </div>
         <div className="ml-auto text-[11px] text-slate-500 font-bold uppercase">
@@ -54,7 +54,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         <button
           onClick={onOpenCalculate}
           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
-          title="Calculate (Options -> Calculate)"
+          title="Calcular Propriedades Gerais"
         >
           <Calculator className="w-4 h-4 text-black" />
           <span>Calcular</span>
@@ -64,20 +64,20 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         <button
           onClick={onOpenUnits}
           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
-          title="Change Units"
+          title="Sistema de Unidades"
         >
           <Settings className="w-4 h-4 text-black" />
-          <span>Units</span>
+          <span>Unidades</span>
         </button>
 
         {/* Process Plotter */}
         <button
           onClick={onOpenProcess}
           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
-          title="Plot Process"
+          title="Traçar Processo Termodinâmico"
         >
           <Sparkles className="w-4 h-4 text-black" />
-          <span>Process</span>
+          <span>Processo</span>
         </button>
 
         <div className="h-5 w-px bg-slate-400 mx-1"></div>

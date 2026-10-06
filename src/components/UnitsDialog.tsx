@@ -37,7 +37,7 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
         {/* Title bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Units
+            Sistema de Unidades
           </span>
           <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
             <X className="w-4 h-4 text-slate-800" />
@@ -102,15 +102,15 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
             className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
-            <span>Cancel</span>
+            <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('Selecione uma das 4 linhas de unidades pré-definidas do CATT3.')}
+            onClick={() => alert('Selecione uma das 4 opções de unidades padronizadas do CATT3.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
-            <span>Help</span>
+            <span>Ajuda</span>
           </button>
         </div>
       </div>

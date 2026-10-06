@@ -17,13 +17,13 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
   statusText,
 }) => {
   const tabs: { id: SubstanceCategory; label: string }[] = [
-    { id: 'WATER', label: 'Water' },
-    { id: 'REFRIGERANTS', label: 'Refrigerants' },
-    { id: 'CRYOGENICS', label: 'Cryogenics' },
-    { id: 'AIR', label: 'Air' },
-    { id: 'IDEAL_GASES', label: 'Ideal Gases' },
-    { id: 'COMPRESSIBILITY', label: 'Compressibility' },
-    { id: 'PSYCHROMETRICS', label: 'Psychrometrics' },
+    { id: 'WATER', label: 'Água / Vapor' },
+    { id: 'REFRIGERANTS', label: 'Refrigerantes' },
+    { id: 'CRYOGENICS', label: 'Criogenia' },
+    { id: 'AIR', label: 'Ar (Gás Real)' },
+    { id: 'IDEAL_GASES', label: 'Gases Ideais' },
+    { id: 'COMPRESSIBILITY', label: 'Compressibilidade (Z)' },
+    { id: 'PSYCHROMETRICS', label: 'Psicrometria' },
   ];
 
   return (
@@ -93,7 +93,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
       {/* Bottom Status bar matching Image 3 */}
       <div className="px-3 py-1 bg-[#f0f0f0] border-t border-slate-300 text-[11px] text-slate-700 flex items-center justify-between">
         <span>{statusText || 'Pronto para calcular.'}</span>
-        <span className="text-slate-500 text-[10px]">CATT3 Standard &bull; IAPWS-IF97 &bull; NIST</span>
+        <span className="text-slate-500 text-[10px]">CATT3 Padrão &bull; IAPWS-IF97 &bull; NIST</span>
       </div>
     </div>
   );

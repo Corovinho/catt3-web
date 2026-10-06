@@ -51,7 +51,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
       {/* Box Header matching CATT3 */}
       <div className="border-b border-slate-300 pb-2 mb-2 flex items-center justify-between">
         <span className="font-bold text-xs uppercase text-slate-900 tracking-wider">
-          {state ? `${state.substanceName} Properties` : 'Substance Properties'}
+          {state ? `Propriedades: ${state.substanceName}` : 'Propriedades da Substância'}
         </span>
         <button
           onClick={onOpenCalculate}
@@ -130,9 +130,9 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
 
         {/* Phase */}
         <div className="flex items-center justify-between py-0.5">
-          <span className="w-16 font-bold text-slate-900">Phase</span>
+          <span className="w-16 font-bold text-slate-900">Fase</span>
           <span className="flex-1 text-right font-bold text-slate-800 text-xs truncate pl-2">
-            {state ? state.phase : '-'}
+            {state ? UnitConverter.formatPhasePtBr(state.phase) : '-'}
           </span>
           <span className="w-6"></span>
         </div>

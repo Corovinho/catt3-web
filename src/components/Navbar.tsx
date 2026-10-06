@@ -52,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase">CATT3 Web</span>
               <span className="text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-700 border border-slate-300">v3.2</span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Computer-Aided Thermodynamic Tables</p>
+            <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Tabelas Termodinâmicas Computacionais</p>
           </div>
         </div>
 
@@ -118,9 +118,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="bg-white border border-slate-300 text-slate-900 text-xs px-2.5 py-1.5 focus:outline-none focus:border-black font-mono transition-colors cursor-pointer"
           >
             <option value="SI">SI (MPa / °C)</option>
-            <option value="SI_MOLE">SI Mole (MPa / K)</option>
-            <option value="BRITISH">British (psia / °F)</option>
-            <option value="BRITISH_MOLE">British Mole (°R)</option>
+            <option value="SI_MOLE">SI Molar (MPa / K)</option>
+            <option value="BRITISH">Britânico / Imperial (psia / °F)</option>
+            <option value="BRITISH_MOLE">Britânico Molar (psia / °R)</option>
           </select>
         </div>
       </div>

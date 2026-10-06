@@ -136,7 +136,7 @@ export class AirEngine {
       stateNumber: 1,
       timestamp: Date.now(),
       substanceId: 'air',
-      substanceName: 'Ar Ideal (Air Table A-22)',
+      substanceName: 'Ar (Tabela de Ar)',
       category: 'AIR',
       mode: 'GENERAL',
       T: T_K - 273.15,

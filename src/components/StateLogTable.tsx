@@ -45,7 +45,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const exportCSV = () => {
     if (states.length === 0) return;
-    const header = `#;Temp (${units.T});Pressure (${units.P});Specific Volume (${units.v});Internal Energy (${units.u});Specific Enthalpy (${units.h});Specific Entropy (${units.s});Quality;Phase\n`;
+    const header = `#;Temperatura (${units.T});Pressão (${units.P});Volume Específico (${units.v});Energia Interna (${units.u});Entalpia Específica (${units.h});Entropia Específica (${units.s});Título (x);Fase\n`;
     const rows = states.map((s, idx) => {
       const dispT = UnitConverter.fromInternalT(s.T, units.T);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
@@ -54,7 +54,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
       const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
       const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
       const dispX = s.x !== null && s.x !== undefined ? s.x : '';
-      return `${idx + 1};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${s.phase}`;
+      return `${idx + 1};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
     }).join('\n');
 
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -69,17 +69,17 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const copyTableMarkdown = () => {
     if (states.length === 0) return;
-    let md = `| # | Temp [${units.T}] | Pressure [${units.P}] | Specific Volume [${units.v}] | Internal Energy [${units.u}] | Specific Enthalpy [${units.h}] | Specific Entropy [${units.s}] | Quality | Phase |\n`;
+    let md = `| # | Temperatura [${units.T}] | Pressão [${units.P}] | Volume Específico [${units.v}] | Energia Interna [${units.u}] | Entalpia Específica [${units.h}] | Entropia Específica [${units.s}] | Título (x) | Fase |\n`;
     md += `|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
     states.forEach((s, idx) => {
-      const dispT = formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2);
-      const dispP = formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 4);
-      const dispV = formatNumber(UnitConverter.fromInternalV(s.v, units.v), 6);
-      const dispU = formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 2);
-      const dispH = formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2);
-      const dispS = formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 4);
-      const dispX = s.x !== null && s.x !== undefined ? formatNumber(s.x, 4) : '-';
-      md += `| ${idx + 1} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${s.phase} |\n`;
+      const dispT = formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2);
+      const dispP = formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4);
+      const dispV = formatV(UnitConverter.fromInternalV(s.v, units.v));
+      const dispU = formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 2, 2);
+      const dispH = formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2, 2);
+      const dispS = formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 4);
+      const dispX = s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : '';
+      md += `| ${idx + 1} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
     });
 
     navigator.clipboard.writeText(md);
@@ -100,7 +100,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
       <div className="flex items-center justify-between gap-2 border-b border-slate-300 pb-2">
         <div className="flex items-center gap-2">
           <span className="font-bold text-xs uppercase text-slate-900 tracking-wider">
-            Log Table (All Evaluated States)
+            Tabela de Histórico (Estados Avaliados)
           </span>
           <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 border border-slate-300 font-mono">
             {states.length} estado(s)
@@ -140,7 +140,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
         </div>
       </div>
 
-      {/* Main Table with the EXACT 9 CATT3 columns from Image 3 */}
+      {/* Main Table with the EXACT 9 CATT3 columns in Portuguese */}
       {states.length === 0 ? (
         <div className="p-8 text-center border border-dashed border-slate-300 bg-slate-50 text-slate-400 text-xs">
           Nenhum estado adicionado ao log ainda. Calcule propriedades e adicione ao log.
@@ -151,14 +151,14 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
             <thead className="bg-[#e8e8e8] text-slate-900 border-b border-slate-400 text-[11px] font-bold sticky top-0">
               <tr>
                 <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Temp</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressure</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Specific Volume</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Internal Energy</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Specific Enthalpy</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Specific Entropy</th>
-                <th className="py-1.5 px-2 text-right border-r border-slate-300">Quality</th>
-                <th className="py-1.5 px-2 text-left">Phase</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume Específico</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia Interna</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia Específica</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia Específica</th>
+                <th className="py-1.5 px-2 text-right border-r border-slate-300">Título (x)</th>
+                <th className="py-1.5 px-2 text-left">Fase</th>
                 <th className="py-1.5 px-1 text-center w-8"></th>
               </tr>
             </thead>
@@ -183,7 +183,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                     <td className="py-1 px-2 text-right border-r border-slate-200 text-slate-800">
                       {s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : ''}
                     </td>
-                    <td className="py-1 px-2 text-left text-[11px] truncate">{s.phase}</td>
+                    <td className="py-1 px-2 text-left text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
                     <td className="py-1 px-1 text-center">
                       <button
                         onClick={() => onDeleteState(s.id)}
