@@ -1,16 +1,6 @@
-const CACHE_NAME = 'catt3-cache-v1';
+const CACHE_NAME = 'catt3-cache-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/favicon.svg',
-        '/manifest.json'
-      ]);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -26,9 +16,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Network first for navigation (HTML page)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
     })
   );
 });
+
