@@ -1,0 +1,16 @@
+{
+  "name": "CATT3 Web - Tabelas Termodinâmicas",
+  "short_name": "CATT3",
+  "description": "Calculadora e tabelas termodinâmicas profissionais de alta precisão (Água, Refrigerantes, Gases Ideais, Ar, Psicrometria).",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
