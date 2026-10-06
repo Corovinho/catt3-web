@@ -224,6 +224,8 @@ export const App: React.FC = () => {
             <DiagramView
               states={statesLog}
               currentSubstance={substanceId}
+              diagramType={diagramType}
+              setDiagramType={setDiagramType}
             />
           </div>
         </div>
