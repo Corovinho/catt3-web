@@ -117,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
             className="bg-white border border-slate-300 text-slate-900 text-xs px-2.5 py-1.5 focus:outline-none focus:border-black font-mono transition-colors cursor-pointer"
           >
-            <option value="SI">SI (bar / °C)</option>
+            <option value="SI">SI (MPa / °C)</option>
             <option value="SI_MOLE">SI Mole (MPa / K)</option>
             <option value="BRITISH">British (psia / °F)</option>
             <option value="BRITISH_MOLE">British Mole (°R)</option>

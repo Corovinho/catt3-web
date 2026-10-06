@@ -18,10 +18,17 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
 }) => {
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  const formatNumber = (num: number, decimals: number = 4) => {
-    if (isNaN(num) || num === null || num === undefined) return '-';
+  const formatNumber = (num: number, maxDecimals: number = 4) => {
+    if (isNaN(num) || num === null || num === undefined) return '';
     if (Math.abs(num) < 0.0001 && num !== 0) return num.toExponential(4);
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+    // Don't force trailing zeroes if integer or fewer decimals, up to maxDecimals
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals });
+  };
+
+  const formatV = (v: number | null) => {
+    if (v === null || isNaN(v)) return '';
+    if (v >= 0.05) return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 });
   };
 
   const dispT = state ? UnitConverter.fromInternalT(state.T, units.T) : null;
@@ -73,7 +80,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">V</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispV !== null ? formatNumber(dispV, 6) : '-'}
+            {dispV !== null ? formatV(dispV) : '-'}
           </span>
           <span className="w-16 text-right text-slate-500 text-[11px]">{units.v}</span>
         </div>
@@ -109,9 +116,9 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
         <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
           <span className="w-16 font-bold text-slate-900">X</span>
           <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-            {dispX !== null ? formatNumber(dispX, 4) : '-'}
+            {dispX !== null ? formatNumber(dispX, 4) : ''}
           </span>
-          <span className="w-16 text-right text-slate-400 text-[11px]">-</span>
+          <span className="w-16 text-right text-slate-400 text-[11px]">{dispX !== null ? '' : ''}</span>
         </div>
 
         {/* Phase */}
