@@ -464,9 +464,8 @@ export const App: React.FC = () => {
       {/* BOTTOM SECTION: Substance Tabs & Status Bar matching CATT3 */}
       <BottomTabs
         category={category}
-        setCategory={(c) => handleCategoryChange(c)}
         substanceId={substanceId}
-        setSubstanceId={(id) => handleCategoryChange(category, id)}
+        onSelectCategory={(cat, sub) => handleCategoryChange(cat, sub)}
         statusText={statusText}
       />
 

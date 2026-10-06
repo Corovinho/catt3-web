@@ -3,17 +3,25 @@ import { SubstanceCategory } from '../types/thermo';
 
 interface BottomTabsProps {
   category: SubstanceCategory;
-  setCategory: (c: SubstanceCategory) => void;
   substanceId: string;
-  setSubstanceId: (id: string) => void;
+  onSelectCategory: (category: SubstanceCategory, substanceId?: string) => void;
   statusText?: string;
 }
 
+const defaultSubstances: Record<SubstanceCategory, string> = {
+  WATER: 'water',
+  REFRIGERANTS: 'r134a',
+  CRYOGENICS: 'nh3',
+  AIR: 'air',
+  IDEAL_GASES: 'co2',
+  COMPRESSIBILITY: 'compressibility',
+  PSYCHROMETRICS: 'psychrometrics',
+};
+
 export const BottomTabs: React.FC<BottomTabsProps> = ({
   category,
-  setCategory,
   substanceId,
-  setSubstanceId,
+  onSelectCategory,
   statusText,
 }) => {
   const tabs: { id: SubstanceCategory; label: string }[] = [
@@ -35,20 +43,11 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                setCategory(tab.id);
-                if (tab.id === 'WATER') setSubstanceId('water');
-                else if (tab.id === 'REFRIGERANTS') setSubstanceId('r134a');
-                else if (tab.id === 'CRYOGENICS') setSubstanceId('nh3');
-                else if (tab.id === 'AIR') setSubstanceId('air');
-                else if (tab.id === 'IDEAL_GASES') setSubstanceId('co2');
-                else if (tab.id === 'COMPRESSIBILITY') setSubstanceId('compressibility');
-                else if (tab.id === 'PSYCHROMETRICS') setSubstanceId('psychrometrics');
-              }}
-              className={`px-3 py-1.5 border-r border-slate-400 text-xs font-mono font-bold whitespace-nowrap transition-colors ${
+              onClick={() => onSelectCategory(tab.id, defaultSubstances[tab.id])}
+              className={`px-3 py-1.5 border-r border-slate-400 text-xs font-mono font-bold whitespace-nowrap transition-colors cursor-pointer ${
                 isSelected
-                  ? 'bg-white text-black border-t-2 border-t-black -mb-px'
-                  : 'bg-[#d8d8d8] text-slate-700 hover:bg-[#e8e8e8]'
+                  ? 'bg-black text-white border-t-2 border-t-black -mb-px shadow-xs'
+                  : 'bg-[#d8d8d8] text-slate-800 hover:bg-white hover:text-black'
               }`}
             >
               {tab.label}
@@ -60,7 +59,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
       {/* Sub-selector for Refrigerants, Cryogenics, or Ideal Gases */}
       {(category === 'REFRIGERANTS' || category === 'CRYOGENICS' || category === 'IDEAL_GASES') && (
         <div className="px-3 py-1 bg-white border-b border-slate-300 flex items-center gap-2 text-xs">
-          <span className="text-slate-600 font-bold uppercase text-[10px]">
+          <span className="text-slate-700 font-bold uppercase text-[10px]">
             {category === 'REFRIGERANTS'
               ? 'Fluido Refrigerante:'
               : category === 'CRYOGENICS'
@@ -69,7 +68,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
           </span>
           <select
             value={substanceId}
-            onChange={(e) => setSubstanceId(e.target.value)}
+            onChange={(e) => onSelectCategory(category, e.target.value)}
             className="border border-slate-400 px-2 py-0.5 text-xs bg-white text-black font-mono font-bold cursor-pointer"
           >
             {category === 'REFRIGERANTS' && (
@@ -92,7 +91,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
                 <option value="co2">CO₂ (Dióxido de Carbono)</option>
                 <option value="co">CO (Monóxido de Carbono)</option>
                 <option value="n2">N₂ (Nitrogênio)</option>
-                <option value="o2">O₂ (Oxigênio)</option>
+                <option value="o2">Oxigênio (O₂)</option>
                 <option value="h2">H₂ (Hidrogênio)</option>
                 <option value="h2o_gas">H₂O (Vapor Gás Ideal)</option>
                 <option value="ch4">CH₄ (Metano)</option>
