@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#090d16"/>
-  <path d="M6 24 C10 14, 14 8, 16 8 C18 8, 22 14, 26 24" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round"/>
-  <circle cx="16" cy="8" r="2.5" fill="#38bdf8"/>
-  <path d="M11 18 L21 18" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <rect width="32" height="32" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <!-- Minimalist Phase Diagram / Vapor Dome Curve -->
+  <path d="M 5 25 C 10 18, 13 8, 16 8 C 19 8, 22 18, 27 25" stroke="#000000" stroke-width="2" stroke-linecap="square"/>
+  <!-- Critical Point Dot -->
+  <circle cx="16" cy="8" r="2" fill="#000000"/>
+  <!-- Tie-line (Isothermal / Isobaric 2-phase line) -->
+  <line x1="9" y1="18" x2="23" y2="18" stroke="#000000" stroke-width="1.2" stroke-dasharray="2 1.5"/>
 </svg>

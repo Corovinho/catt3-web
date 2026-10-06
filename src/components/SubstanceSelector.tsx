@@ -27,8 +27,8 @@ export const SubstanceSelector: React.FC<SubstanceSelectorProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* Scrollable category pills for mobile */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+      {/* Scrollable category tabs with straight edges */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
         {categories.map((c) => {
           const isSelected = category === c.id;
           return (
@@ -44,10 +44,10 @@ export const SubstanceSelector: React.FC<SubstanceSelectorProps> = ({
                 else if (c.id === 'COMPRESSIBILITY') setSubstanceId('compressibility');
                 else if (c.id === 'PSYCHROMETRICS') setSubstanceId('psychrometrics');
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all border font-medium ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap transition-all border text-xs font-mono tracking-tight ${
                 isSelected
-                  ? 'bg-sky-500/10 border-sky-500/50 text-sky-300 shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  ? 'bg-black border-black text-white font-bold shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-700 hover:text-black hover:border-slate-400'
               }`}
             >
               {c.icon}
@@ -57,14 +57,14 @@ export const SubstanceSelector: React.FC<SubstanceSelectorProps> = ({
         })}
       </div>
 
-      {/* Sub-substance picker if Refrigerants or Ideal Gases */}
+      {/* Sub-substance picker with straight edges */}
       {category === 'REFRIGERANTS' && (
-        <div className="flex items-center gap-2 pt-1 text-xs">
-          <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold">Fluido:</span>
+        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Substância:</span>
           <select
             value={substanceId}
             onChange={(e) => setSubstanceId(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-sky-500"
+            className="bg-white border border-slate-300 text-slate-900 px-2 py-1 text-xs focus:outline-none focus:border-black cursor-pointer font-mono"
           >
             <option value="r134a">R-134a (Tetrafluoroetano)</option>
             <option value="r22">R-22 (Clorodifluorometano)</option>
@@ -73,12 +73,12 @@ export const SubstanceSelector: React.FC<SubstanceSelectorProps> = ({
       )}
 
       {category === 'IDEAL_GASES' && (
-        <div className="flex items-center gap-2 pt-1 text-xs">
-          <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold">Gás:</span>
+        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Gás:</span>
           <select
             value={substanceId}
             onChange={(e) => setSubstanceId(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-sky-500"
+            className="bg-white border border-slate-300 text-slate-900 px-2 py-1 text-xs focus:outline-none focus:border-black cursor-pointer font-mono"
           >
             <option value="co2">CO₂ (Dióxido de Carbono)</option>
             <option value="co">CO (Monóxido de Carbono)</option>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UnitSystem } from '../types/thermo';
-import { Activity, BookOpen, Layers, LineChart, Sparkles } from 'lucide-react';
+import { Activity, Layers, LineChart, Sparkles } from 'lucide-react';
 
 interface NavbarProps {
   unitSystem: UnitSystem;
@@ -20,48 +20,68 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProcess,
 }) => {
   return (
-    <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-3 py-2.5 sm:px-6">
+    <header className="border-b border-slate-200 bg-white sticky top-0 z-30 px-3 py-2.5 sm:px-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-sky-950 border border-sky-600/40 flex items-center justify-center text-sky-400 font-bold text-sm tracking-wider shadow-inner">
-            C3
+        {/* Brand & Phase Diagram Logo */}
+        <div className="flex items-center gap-3">
+          {/* Minimalist Phase Diagram Logo */}
+          <div className="w-8 h-8 bg-white border border-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0">
+            <svg viewBox="0 0 28 28" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Axes (L-shape) */}
+              <line x1="3" y1="2" x2="3" y2="25" stroke="#0f172a" strokeWidth="1.2" strokeLinecap="square" />
+              <line x1="3" y1="25" x2="26" y2="25" stroke="#0f172a" strokeWidth="1.2" strokeLinecap="square" />
+              
+              {/* Minimalist Phase Diagram / Vapor Dome */}
+              <path
+                d="M 5 24 C 9 17, 13 8, 15 8 C 17 8, 21 17, 25 24"
+                stroke="#0f172a"
+                strokeWidth="1.5"
+                strokeLinecap="square"
+              />
+              
+              {/* Critical Point Dot */}
+              <circle cx="15" cy="8" r="1.8" fill="#0f172a" />
+              
+              {/* Isobar / Tie-line in two-phase region */}
+              <line x1="8" y1="17" x2="22" y2="17" stroke="#64748b" strokeWidth="1" strokeDasharray="1.8 1.2" />
+            </svg>
           </div>
+
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-100 tracking-tight text-sm sm:text-base">CATT3 Web</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">v3.2</span>
+              <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase">CATT3 Web</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-700 border border-slate-300">v3.2</span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">Computer-Aided Thermodynamic Tables</p>
+            <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Computer-Aided Thermodynamic Tables</p>
           </div>
         </div>
 
-        {/* View Switcher (Tabs) */}
-        <div className="flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-lg text-xs font-medium">
+        {/* View Switcher (Tabs with Straight Edges) */}
+        <div className="flex items-center bg-slate-100 border border-slate-200 p-0.5 text-xs font-mono">
           <button
             onClick={() => setActiveView('calc')}
-            className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'calc'
-                ? 'bg-slate-800 text-sky-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            <span>Calcular</span>
+            <span>CALCULAR</span>
           </button>
 
           <button
             onClick={() => setActiveView('log')}
-            className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'log'
-                ? 'bg-slate-800 text-sky-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Estados</span>
+            <span>ESTADOS</span>
             {logCount > 0 && (
-              <span className="ml-0.5 px-1 py-0.2 rounded-full text-[10px] bg-sky-950 text-sky-400 border border-sky-800/60 font-mono">
+              <span className="ml-0.5 px-1 py-0.2 text-[10px] bg-slate-900 text-white font-mono">
                 {logCount}
               </span>
             )}
@@ -69,33 +89,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => setActiveView('diagram')}
-            className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'diagram'
-                ? 'bg-slate-800 text-sky-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
             <LineChart className="w-3.5 h-3.5" />
-            <span>Diagrama</span>
+            <span>DIAGRAMA</span>
           </button>
         </div>
 
-        {/* Unit and Process Buttons */}
+        {/* Action and Unit buttons (Straight Edges) */}
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenProcess}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300 hover:text-sky-300 transition-colors"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 transition-colors font-mono"
             title="Traçar processo termodinâmico (Isotérmico, Isobárico, Isentrópico...)"
           >
-            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-            <span>Processo</span>
+            <Sparkles className="w-3.5 h-3.5 text-slate-700" />
+            <span>PROCESSO</span>
           </button>
 
           {/* Unit Selector */}
           <select
             value={unitSystem}
             onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
-            className="bg-slate-900 border border-slate-700/80 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-sky-500 font-mono transition-colors"
+            className="bg-white border border-slate-300 text-slate-900 text-xs px-2.5 py-1.5 focus:outline-none focus:border-black font-mono transition-colors cursor-pointer"
           >
             <option value="SI">SI (bar / °C)</option>
             <option value="SI_MOLE">SI Mole (MPa / K)</option>

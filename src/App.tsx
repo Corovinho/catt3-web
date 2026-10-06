@@ -97,7 +97,6 @@ export const App: React.FC = () => {
           const p2 = parseFloat(prop2Value);
           if (isNaN(p1) || isNaN(p2)) throw new Error('Insira valores numéricos válidos.');
 
-          // Map prop 1
           if (prop1Name === 'P') props.P_MPa = UnitConverter.toInternalP(p1, 'bar');
           else if (prop1Name === 'T') props.T = UnitConverter.toInternalT(p1, 'C');
           else if (prop1Name === 'h') props.h = UnitConverter.toInternalEnergy(p1, 'kJ/kg');
@@ -105,7 +104,6 @@ export const App: React.FC = () => {
           else if (prop1Name === 'v') props.v = UnitConverter.toInternalV(p1, 'm3/kg');
           else if (prop1Name === 'x') props.x = Math.max(0, Math.min(1, p1));
 
-          // Map prop 2
           if (prop2Name === 'P') props.P_MPa = UnitConverter.toInternalP(p2, 'bar');
           else if (prop2Name === 'T') props.T = UnitConverter.toInternalT(p2, 'C');
           else if (prop2Name === 'h') props.h = UnitConverter.toInternalEnergy(p2, 'kJ/kg');
@@ -202,7 +200,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-sky-500/30 selection:text-sky-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-black selection:text-white">
       <Navbar
         unitSystem={unitSystem}
         setUnitSystem={setUnitSystem}
@@ -304,8 +302,8 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-3 px-4 text-center text-xs text-slate-500 font-mono">
-        <p>CATT3 Web &bull; Computer-Aided Thermodynamic Tables 3 &bull; Formulações IAPWS-IF97 &bull; NIST Standard &bull; ASHRAE</p>
+      <footer className="border-t border-slate-200 bg-white py-3 px-4 text-center text-xs text-slate-500 font-mono">
+        <p>CATT3 Web &bull; Computer-Aided Thermodynamic Tables 3 &bull; Formulações IAPWS-IF97 &bull; Padrão NIST &bull; ASHRAE</p>
       </footer>
 
       {/* Process Wizard Modal */}
