@@ -27,6 +27,7 @@ export const App: React.FC = () => {
   const [category, setCategory] = useState<SubstanceCategory>('WATER');
   const [substanceId, setSubstanceId] = useState<string>('water');
   const [diagramType, setDiagramType] = useState<'Ts' | 'Pv'>('Ts');
+  const [activeView, setActiveView] = useState<'calc' | 'log' | 'diagram'>('calc');
 
   // Dialog states
   const [isGeneralPropsOpen, setIsGeneralPropsOpen] = useState(false);
@@ -187,8 +188,8 @@ export const App: React.FC = () => {
       <Navbar
         unitSystem={unitSystem}
         setUnitSystem={setUnitSystem}
-        activeView="calc"
-        setActiveView={() => {}}
+        activeView={activeView}
+        setActiveView={setActiveView}
         logCount={statesLog.length}
         onOpenProcess={() => setIsProcessOpen(true)}
       />
@@ -207,20 +208,69 @@ export const App: React.FC = () => {
 
       {/* Main Workspace matching CATT3 Screen in Image 3 */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 space-y-3">
-        {/* UPPER SECTION: Split Left (Properties Box) & Right (Diagram) */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
-          {/* Upper Left: Properties Box (Image 3) */}
-          <div className="md:col-span-5 flex flex-col">
-            <PropertiesBox
-              state={currentState}
+        {activeView === 'calc' && (
+          <>
+            {/* UPPER SECTION: Split Left (Properties Box) & Right (Diagram) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
+              {/* Upper Left: Properties Box (Image 3) */}
+              <div className="md:col-span-5 flex flex-col">
+                <PropertiesBox
+                  state={currentState}
+                  unitSystem={unitSystem}
+                  onOpenCalculate={() => setIsGeneralPropsOpen(true)}
+                  onAddState={handleAddStateToLog}
+                />
+              </div>
+
+              {/* Upper Right: T-S / P-v Diagram (Image 3) */}
+              <div className="md:col-span-7 flex flex-col">
+                <DiagramView
+                  states={statesLog}
+                  currentSubstance={substanceId}
+                  diagramType={diagramType}
+                  setDiagramType={setDiagramType}
+                />
+              </div>
+            </div>
+
+            {/* LOWER SECTION: Spreadsheet Log Table (Image 3) */}
+            <div>
+              <StateLogTable
+                states={statesLog}
+                unitSystem={unitSystem}
+                onClear={handleClearLog}
+                onDeleteState={handleDeleteState}
+                onUpdateLabel={handleUpdateLabel}
+              />
+            </div>
+          </>
+        )}
+
+        {activeView === 'log' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between bg-white border border-slate-300 p-2.5 font-mono">
+              <span className="text-xs font-bold uppercase text-slate-800">
+                Visualização Expandida de Estados
+              </span>
+              <button
+                onClick={() => setIsGeneralPropsOpen(true)}
+                className="px-3 py-1 bg-black text-white text-xs font-bold uppercase hover:bg-slate-800 transition-colors"
+              >
+                + Calcular Novo Estado
+              </button>
+            </div>
+            <StateLogTable
+              states={statesLog}
               unitSystem={unitSystem}
-              onOpenCalculate={() => setIsGeneralPropsOpen(true)}
-              onAddState={handleAddStateToLog}
+              onClear={handleClearLog}
+              onDeleteState={handleDeleteState}
+              onUpdateLabel={handleUpdateLabel}
             />
           </div>
+        )}
 
-          {/* Upper Right: T-S / P-v Diagram (Image 3) */}
-          <div className="md:col-span-7 flex flex-col">
+        {activeView === 'diagram' && (
+          <div className="space-y-3">
             <DiagramView
               states={statesLog}
               currentSubstance={substanceId}
@@ -228,18 +278,7 @@ export const App: React.FC = () => {
               setDiagramType={setDiagramType}
             />
           </div>
-        </div>
-
-        {/* LOWER SECTION: Spreadsheet Log Table (Image 3) */}
-        <div>
-          <StateLogTable
-            states={statesLog}
-            unitSystem={unitSystem}
-            onClear={handleClearLog}
-            onDeleteState={handleDeleteState}
-            onUpdateLabel={handleUpdateLabel}
-          />
-        </div>
+        )}
       </div>
 
       {/* BOTTOM SECTION: Substance Tabs & Status Bar (Image 3) */}

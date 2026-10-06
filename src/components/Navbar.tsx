@@ -57,13 +57,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* View Switcher (Tabs with Straight Edges) */}
-        <div className="flex items-center bg-slate-100 border border-slate-200 p-0.5 text-xs font-mono">
+        <div className="flex items-center bg-slate-200 border border-slate-400 p-0.5 text-xs font-mono">
           <button
             onClick={() => setActiveView('calc')}
             className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'calc'
-                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
-                : 'text-slate-600 hover:text-slate-950'
+                ? 'bg-black text-white font-bold shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-300'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
@@ -74,14 +74,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveView('log')}
             className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'log'
-                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
-                : 'text-slate-600 hover:text-slate-950'
+                ? 'bg-black text-white font-bold shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-300'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>ESTADOS</span>
             {logCount > 0 && (
-              <span className="ml-0.5 px-1 py-0.2 text-[10px] bg-slate-900 text-white font-mono">
+              <span className={`ml-0.5 px-1 py-0.2 text-[10px] font-mono ${
+                activeView === 'log' ? 'bg-white text-black' : 'bg-black text-white'
+              }`}>
                 {logCount}
               </span>
             )}
@@ -91,8 +93,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveView('diagram')}
             className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
               activeView === 'diagram'
-                ? 'bg-white text-slate-950 font-bold border border-slate-300 shadow-sm'
-                : 'text-slate-600 hover:text-slate-950'
+                ? 'bg-black text-white font-bold shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-300'
             }`}
           >
             <LineChart className="w-3.5 h-3.5" />
