@@ -17,6 +17,8 @@ interface GeneralPropertiesDialogProps {
   isOpen: boolean;
   onClose: () => void;
   unitSystem: UnitSystem;
+  initialT?: number;
+  initialP?: number;
   onCalculate: (data: {
     inputType: InputType;
     T?: number;
@@ -33,6 +35,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   isOpen,
   onClose,
   unitSystem,
+  initialT,
+  initialP,
   onCalculate,
   substanceName,
 }) => {
@@ -45,6 +49,13 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   const [valH, setValH] = useState<string>('2675');
   const [valS, setValS] = useState<string>('7.35');
   const [valX, setValX] = useState<string>('1');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialT !== undefined && !isNaN(initialT)) setValT(Number(initialT.toFixed(2)).toString());
+      if (initialP !== undefined && !isNaN(initialP)) setValP(Number(initialP.toFixed(4)).toString());
+    }
+  }, [isOpen, initialT, initialP]);
 
   if (!isOpen) return null;
 

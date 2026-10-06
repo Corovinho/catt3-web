@@ -76,6 +76,41 @@ export const GAS_CATALOG: Record<string, GasSpecies> = {
     formula: 'NO₂',
     M: 46.005,
     shomate: [27.70110, 48.75160, -32.55640, 8.423700, -0.160100, 22.84000, 273.7000, 33.1000]
+  },
+  'n': {
+    id: 'n',
+    name: 'Nitrogênio Monoatômico',
+    formula: 'N',
+    M: 14.0067,
+    shomate: [20.786, 0.0, 0.0, 0.0, 0.0, 467.5, 153.3, 472.6]
+  },
+  'h': {
+    id: 'h',
+    name: 'Hidrogênio Monoatômico',
+    formula: 'H',
+    M: 1.008,
+    shomate: [20.786, 0.0, 0.0, 0.0, 0.0, 212.0, 114.7, 218.0]
+  },
+  'o': {
+    id: 'o',
+    name: 'Oxigênio Monoatômico',
+    formula: 'O',
+    M: 15.9994,
+    shomate: [21.90, -1.80, 0.90, -0.20, 0.0, 244.0, 161.0, 249.2]
+  },
+  'oh': {
+    id: 'oh',
+    name: 'Radical Hidroxila',
+    formula: 'OH',
+    M: 17.007,
+    shomate: [29.80, -2.50, 4.50, -1.50, 0.05, 34.0, 183.0, 39.3]
+  },
+  'h2o': {
+    id: 'h2o',
+    name: 'Vapor d\'Água (Gás Ideal)',
+    formula: 'H₂O',
+    M: 18.015,
+    shomate: [30.09200, 6.832514, 6.793435, -2.534480, 0.082139, -250.8810, 223.3967, -241.8264]
   }
 };
 

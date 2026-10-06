@@ -8,6 +8,8 @@ interface FluidSatDialogProps {
   onClose: () => void;
   unitSystem: UnitSystem;
   substanceName: string;
+  initialT?: number;
+  initialP?: number;
   onCalculate: (data: {
     primaryType: 'T' | 'P';
     primaryValue: number;
@@ -21,6 +23,8 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
   onClose,
   unitSystem,
   substanceName,
+  initialT,
+  initialP,
   onCalculate,
 }) => {
   const [primaryType, setPrimaryType] = useState<'T' | 'P'>('T');
@@ -29,6 +33,13 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
 
   const [mixtureType, setMixtureType] = useState<'x' | 'sat_liq' | 'sat_vap' | 'h' | 's' | 'v'>('x');
   const [valMix, setValMix] = useState<string>('0.5');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialT !== undefined && !isNaN(initialT)) setValT(Number(initialT.toFixed(2)).toString());
+      if (initialP !== undefined && !isNaN(initialP)) setValP(Number(initialP.toFixed(4)).toString());
+    }
+  }, [isOpen, initialT, initialP]);
 
   if (!isOpen) return null;
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ThermodynamicState, SubstanceCategory } from '../types/thermo';
+import { FLUID_CATALOG } from '../engine/refrigerants';
 
 interface DiagramViewProps {
   states: ThermodynamicState[];
@@ -74,31 +75,83 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     { v: 206.1,    P: 0.000611 },
   ];
 
-  // Fluid Scales
-  const minS = 0, maxS = 10;
-  const minT = 0, maxT = 450;
-  const toXTs = (s: number) => padL + ((s - minS) / (maxS - minS)) * (width - padL - padR);
-  const toYTs = (T: number) => height - padB - ((T - minT) / (maxT - minT)) * (height - padT - padB);
+  // Fluid Dome selection & dynamic scale bounds
+  const fluidDef = (category === 'REFRIGERANTS' || category === 'CRYOGENICS')
+    ? (FLUID_CATALOG[currentSubstance] || FLUID_CATALOG['r134a'])
+    : null;
 
-  const minLogV = -3.2, maxLogV = 1.0;
-  const minP = 0, maxP = 25;
+  let tsDomePoints = tsDomeWater;
+  let pvDomePoints = pvDomeWater;
+  let critT = 373.95;
+  let critS = 4.412;
+  let critP = 22.064; // MPa
+  let critV = 0.003106;
+
+  let minS = 0, maxS = 10;
+  let minT = 0, maxT = 450;
+  let minP = 0, maxP = 25; // MPa
+  let minLogV = -3.2, maxLogV = 1.0;
+
+  if (fluidDef) {
+    critT = fluidDef.Tc;
+    critP = Number((fluidDef.Pc * 0.1).toFixed(4));
+    const lastPt = fluidDef.table[fluidDef.table.length - 1];
+    critS = Number(((lastPt.sf + lastPt.sg) / 2).toFixed(4));
+    critV = Number(((lastPt.vf + lastPt.vg) / 2).toFixed(6));
+
+    const liqLine = fluidDef.table.map((p) => ({ s: p.sf, T: p.T }));
+    const vapLine = [...fluidDef.table].reverse().map((p) => ({ s: p.sg, T: p.T }));
+    tsDomePoints = [...liqLine, { s: critS, T: critT }, ...vapLine];
+
+    const liqPv = fluidDef.table.map((p) => ({ v: p.vf, P: p.P * 0.1 }));
+    const vapPv = [...fluidDef.table].reverse().map((p) => ({ v: p.vg, P: p.P * 0.1 }));
+    pvDomePoints = [...liqPv, { v: critV, P: critP }, ...vapPv];
+
+    const allT = fluidDef.table.map((p) => p.T);
+    const allS = [...fluidDef.table.map((p) => p.sf), ...fluidDef.table.map((p) => p.sg)];
+    const allV = [...fluidDef.table.map((p) => p.vf), ...fluidDef.table.map((p) => p.vg)];
+
+    const rawMinT = Math.min(...allT, critT);
+    const rawMaxT = Math.max(...allT, critT);
+    const spanT = Math.max(10, rawMaxT - rawMinT);
+    minT = Math.floor((rawMinT - spanT * 0.1) / 10) * 10;
+    maxT = Math.ceil((rawMaxT + spanT * 0.15) / 10) * 10;
+
+    const rawMinS = Math.min(...allS, critS);
+    const rawMaxS = Math.max(...allS, critS);
+    const spanS = Math.max(0.5, rawMaxS - rawMinS);
+    minS = Math.floor((rawMinS - spanS * 0.1) * 10) / 10;
+    maxS = Math.ceil((rawMaxS + spanS * 0.15) * 10) / 10;
+
+    maxP = Math.ceil(critP * 1.25);
+    minP = 0;
+
+    const rawMinV = Math.max(1e-5, Math.min(...allV));
+    const rawMaxV = Math.max(...allV);
+    minLogV = Math.floor(Math.log10(rawMinV) * 10) / 10;
+    maxLogV = Math.ceil(Math.log10(rawMaxV) * 10) / 10;
+  }
+
+  const toXTs = (s: number) => padL + ((s - minS) / (maxS - minS || 1)) * (width - padL - padR);
+  const toYTs = (T: number) => height - padB - ((T - minT) / (maxT - minT || 1)) * (height - padT - padB);
+
   const toXPv = (v: number) => {
-    const safeV = Math.max(0.0006, Math.min(10, v));
+    const safeV = Math.max(Math.pow(10, minLogV), Math.min(Math.pow(10, maxLogV), v));
     const logV = Math.log10(safeV);
-    return padL + ((logV - minLogV) / (maxLogV - minLogV)) * (width - padL - padR);
+    return padL + ((logV - minLogV) / (maxLogV - minLogV || 1)) * (width - padL - padR);
   };
   const toYPv = (P_MPa: number) => {
     const safeP = Math.max(0, Math.min(maxP, P_MPa));
-    return height - padB - ((safeP - minP) / (maxP - minP)) * (height - padT - padB);
+    return height - padB - ((safeP - minP) / (maxP - minP || 1)) * (height - padT - padB);
   };
 
-  const domePathTs = tsDomeWater.reduce((acc, pt, idx) => {
+  const domePathTs = tsDomePoints.reduce((acc, pt, idx) => {
     const x = toXTs(pt.s);
     const y = toYTs(pt.T);
     return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
   }, '');
 
-  const domePathPv = pvDomeWater.reduce((acc, pt, idx) => {
+  const domePathPv = pvDomePoints.reduce((acc, pt, idx) => {
     const x = toXPv(pt.v);
     const y = toYPv(pt.P);
     return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
@@ -617,62 +670,68 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Ts' && (
             <>
               {/* T Horizontal Grid Lines */}
-              {[100, 200, 300, 400].map((T) => (
-                <g key={T}>
-                  <line
-                    x1={padL}
-                    y1={toYTs(T)}
-                    x2={width - padR}
-                    y2={toYTs(T)}
-                    stroke="#e2e8f0"
-                    strokeDasharray="2 2"
-                  />
-                  <text
-                    x={padL - 8}
-                    y={toYTs(T) + 4}
-                    fill="#64748b"
-                    fontSize="10"
-                    textAnchor="end"
-                    fontFamily="JetBrains Mono"
-                  >
-                    {T}°C
-                  </text>
-                </g>
-              ))}
+              {[0.2, 0.4, 0.6, 0.8].map((f) => {
+                const T = Math.round(minT + f * (maxT - minT));
+                return (
+                  <g key={T}>
+                    <line
+                      x1={padL}
+                      y1={toYTs(T)}
+                      x2={width - padR}
+                      y2={toYTs(T)}
+                      stroke="#e2e8f0"
+                      strokeDasharray="2 2"
+                    />
+                    <text
+                      x={padL - 8}
+                      y={toYTs(T) + 4}
+                      fill="#64748b"
+                      fontSize="10"
+                      textAnchor="end"
+                      fontFamily="JetBrains Mono"
+                    >
+                      {T}°C
+                    </text>
+                  </g>
+                );
+              })}
 
               {/* s Vertical Grid Lines */}
-              {[2, 4, 6, 8].map((s) => (
-                <g key={s}>
-                  <line
-                    x1={toXTs(s)}
-                    y1={padT}
-                    x2={toXTs(s)}
-                    y2={height - padB}
-                    stroke="#e2e8f0"
-                    strokeDasharray="2 2"
-                  />
-                  <text
-                    x={toXTs(s)}
-                    y={height - padB + 16}
-                    fill="#64748b"
-                    fontSize="10"
-                    textAnchor="middle"
-                    fontFamily="JetBrains Mono"
-                  >
-                    {s}
-                  </text>
-                </g>
-              ))}
+              {[0.2, 0.4, 0.6, 0.8].map((f) => {
+                const s = Number((minS + f * (maxS - minS)).toFixed(2));
+                return (
+                  <g key={s}>
+                    <line
+                      x1={toXTs(s)}
+                      y1={padT}
+                      x2={toXTs(s)}
+                      y2={height - padB}
+                      stroke="#e2e8f0"
+                      strokeDasharray="2 2"
+                    />
+                    <text
+                      x={toXTs(s)}
+                      y={height - padB + 16}
+                      fill="#64748b"
+                      fontSize="10"
+                      textAnchor="middle"
+                      fontFamily="JetBrains Mono"
+                    >
+                      {s}
+                    </text>
+                  </g>
+                );
+              })}
 
               {/* T-s Saturation Dome */}
               <path d={domePathTs} fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="square" />
               <path d={`${domePathTs} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
               {/* Critical Point Marker (T-s) with White Halo to prevent overlapping curve */}
-              <circle cx={toXTs(4.412)} cy={toYTs(373.95)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
+              <circle cx={toXTs(critS)} cy={toYTs(critT)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
-                x={toXTs(4.412)}
-                y={toYTs(373.95) - 12}
+                x={toXTs(critS)}
+                y={toYTs(critT) - 12}
                 fill="#0f172a"
                 fontSize="9"
                 textAnchor="middle"
@@ -767,37 +826,39 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Pv' && (
             <>
               {/* P Horizontal Grid Lines */}
-              {[5, 10, 15, 20, 25].map((P) => (
-                <g key={P}>
-                  <line
-                    x1={padL}
-                    y1={toYPv(P)}
-                    x2={width - padR}
-                    y2={toYPv(P)}
-                    stroke="#e2e8f0"
-                    strokeDasharray="2 2"
-                  />
-                  <text
-                    x={padL - 8}
-                    y={toYPv(P) + 4}
-                    fill="#64748b"
-                    fontSize="10"
-                    textAnchor="end"
-                    fontFamily="JetBrains Mono"
-                  >
-                    {P} MPa
-                  </text>
-                </g>
-              ))}
+              {[0.2, 0.4, 0.6, 0.8].map((f) => {
+                const P = Number((minP + f * (maxP - minP)).toFixed(2));
+                return (
+                  <g key={P}>
+                    <line
+                      x1={padL}
+                      y1={toYPv(P)}
+                      x2={width - padR}
+                      y2={toYPv(P)}
+                      stroke="#e2e8f0"
+                      strokeDasharray="2 2"
+                    />
+                    <text
+                      x={padL - 8}
+                      y={toYPv(P) + 4}
+                      fill="#64748b"
+                      fontSize="10"
+                      textAnchor="end"
+                      fontFamily="JetBrains Mono"
+                    >
+                      {P} MPa
+                    </text>
+                  </g>
+                );
+              })}
 
               {/* v Vertical Grid Lines (Log Scale) */}
-              {[
-                { val: 0.001, label: '0,001' },
-                { val: 0.01, label: '0,01' },
-                { val: 0.1, label: '0,1' },
-                { val: 1, label: '1' },
-                { val: 10, label: '10' },
-              ].map((vt) => (
+              {Array.from({ length: Math.max(1, Math.floor(maxLogV) - Math.ceil(minLogV) + 1) }, (_, i) => {
+                const p = Math.ceil(minLogV) + i;
+                const val = Math.pow(10, p);
+                const label = val >= 1 ? val.toString() : val.toFixed(Math.min(5, Math.abs(p))).replace('.', ',');
+                return { val, label };
+              }).map((vt) => (
                 <g key={vt.val}>
                   <line
                     x1={toXPv(vt.val)}
@@ -825,10 +886,10 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               <path d={`${domePathPv} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
               {/* Critical Point Marker (P-v) with halo */}
-              <circle cx={toXPv(0.003106)} cy={toYPv(22.064)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
+              <circle cx={toXPv(critV)} cy={toYPv(critP)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
-                x={toXPv(0.003106)}
-                y={toYPv(22.064) - 12}
+                x={toXPv(critV)}
+                y={toYPv(critP) - 12}
                 fill="#0f172a"
                 fontSize="9"
                 textAnchor="middle"

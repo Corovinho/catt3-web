@@ -24,6 +24,102 @@ export interface FluidDefinition {
   table: SaturationPoint[];
 }
 
+const R_U = 8.314462618; // kJ/(kmol·K)
+
+/**
+ * Thermodynamic Saturation Table Generator
+ * Using Lee-Kesler / Ambrose-Walton vapor pressure, Rackett liquid density,
+ * Pitzer second virial vapor volume, and Clapeyron latent heat equation.
+ */
+function generateSaturationTable(spec: {
+  Tc: number; // °C
+  Pc: number; // bar
+  Tb: number; // °C
+  M: number; // kg/kmol
+  omega: number;
+  cpl: number; // kJ/(kg·K)
+  Tmin?: number; // °C
+  Tmax?: number; // °C
+  href?: number;
+  sref?: number;
+}): SaturationPoint[] {
+  const Tc_K = spec.Tc + 273.15;
+  const Tb_K = spec.Tb + 273.15;
+  const Tmin = spec.Tmin ?? Math.max(-100, Math.floor(spec.Tb - 30));
+  const Tmax = spec.Tmax ?? Math.min(spec.Tc - 2, Math.floor(spec.Tc * 0.95));
+  const points: SaturationPoint[] = [];
+
+  const count = 35;
+  const step = (Tmax - Tmin) / (count - 1);
+
+  const Tref_K = spec.Tc > 10 ? 273.15 : Tb_K;
+  const href = spec.href ?? 200.0;
+  const sref = spec.sref ?? 1.0;
+
+  for (let i = 0; i < count; i++) {
+    const T = Tmin + i * step;
+    const T_K = T + 273.15;
+    const Tr = Math.min(0.999, Math.max(0.3, T_K / Tc_K));
+
+    // Lee-Kesler Vapor Pressure
+    const f0 = 5.92714 - 6.09648 / Tr - 1.28862 * Math.log(Tr) + 0.169347 * Math.pow(Tr, 6);
+    const f1 = 15.2518 - 15.6875 / Tr - 13.4721 * Math.log(Tr) + 0.43577 * Math.pow(Tr, 6);
+    const lnPr = f0 + spec.omega * f1;
+    const P = spec.Pc * Math.exp(lnPr); // bar
+
+    // d(ln Pr) / d(Tr)
+    const df0_dTr = 6.09648 / (Tr * Tr) - 1.28862 / Tr + 6 * 0.169347 * Math.pow(Tr, 5);
+    const df1_dTr = 15.6875 / (Tr * Tr) - 13.4721 / Tr + 6 * 0.43577 * Math.pow(Tr, 5);
+    const dlnPr_dTr = df0_dTr + spec.omega * df1_dTr;
+    const dP_dT = (P / Tc_K) * dlnPr_dTr; // bar/K
+
+    // Rackett liquid specific volume
+    const Zra = Math.max(0.20, Math.min(0.30, 0.29056 - 0.08775 * spec.omega));
+    const tau = Math.max(0.001, 1 - Tr);
+    const rackettExp = 1 + Math.pow(tau, 2 / 7);
+    const vc_ideal = (R_U * Tc_K) / (spec.M * (spec.Pc * 100)); // m3/kg
+    const vf = vc_ideal * Math.pow(Zra, rackettExp);
+
+    // Saturated vapor volume via virial EOS
+    const Pr = P / spec.Pc;
+    const B0 = 0.083 - 0.422 / Math.pow(Tr, 1.6);
+    const B1 = 0.139 - 0.172 / Math.pow(Tr, 4.2);
+    let Zsat = 1 + (B0 + spec.omega * B1) * (Pr / Tr);
+    if (Zsat < 0.35) Zsat = 0.35;
+    if (Zsat > 1.0) Zsat = 0.99;
+    const vg = (Zsat * R_U * T_K) / (spec.M * (P * 100));
+
+    // Latent heat of vaporization via Clapeyron: hfg = T * (vg - vf) * (dP/dT) * 100
+    const hfg = Math.max(10, T_K * Math.max(1e-6, vg - vf) * dP_dT * 100);
+
+    // Liquid enthalpy & entropy
+    const hf = href + spec.cpl * (T_K - Tref_K);
+    const sf = sref + spec.cpl * Math.log(Math.max(0.1, T_K / Tref_K));
+
+    const hg = hf + hfg;
+    const sfg = hfg / T_K;
+    const sg = sf + sfg;
+
+    const uf = hf - P * vf * 100;
+    const ug = hg - P * vg * 100;
+
+    points.push({
+      T: Number(T.toFixed(2)),
+      P: Number(P.toFixed(4)),
+      vf: Number(vf.toFixed(7)),
+      vg: Number(vg.toFixed(5)),
+      uf: Number(uf.toFixed(2)),
+      ug: Number(ug.toFixed(2)),
+      hf: Number(hf.toFixed(2)),
+      hg: Number(hg.toFixed(2)),
+      sf: Number(sf.toFixed(4)),
+      sg: Number(sg.toFixed(4)),
+    });
+  }
+
+  return points;
+}
+
 // Moran & Shapiro Table A-10 / Çengel Table A-11: Saturated R-134a
 export const R134A_TABLE: SaturationPoint[] = [
   { T: -40, P: 0.5125, vf: 0.0007055, vg: 0.36081, uf: -0.04, ug: 204.45, hf: 0.00,   hg: 222.88, sf: 0.0000, sg: 0.9687 },
@@ -87,9 +183,122 @@ export const R22_TABLE: SaturationPoint[] = [
 ];
 
 export const FLUID_CATALOG: Record<string, FluidDefinition> = {
+  // -------------------------------------------------------------
+  // REFRIGERANTS (20 Substances - exact CATT3 set)
+  // -------------------------------------------------------------
+  'co2': {
+    id: 'co2',
+    name: 'CO2',
+    formula: 'CO₂',
+    category: 'REFRIGERANTS',
+    molarMass: 44.01,
+    Tc: 31.0,
+    Pc: 73.8,
+    table: generateSaturationTable({ Tc: 31.0, Pc: 73.8, Tb: -78.5, M: 44.01, omega: 0.224, cpl: 2.2, Tmin: -55, Tmax: 30 })
+  },
+  'r11': {
+    id: 'r11',
+    name: 'R-11',
+    formula: 'CCl₃F',
+    category: 'REFRIGERANTS',
+    molarMass: 137.37,
+    Tc: 198.0,
+    Pc: 44.1,
+    table: generateSaturationTable({ Tc: 198.0, Pc: 44.1, Tb: 23.7, M: 137.37, omega: 0.188, cpl: 0.88, Tmin: -30, Tmax: 190 })
+  },
+  'r12': {
+    id: 'r12',
+    name: 'R-12',
+    formula: 'CCl₂F₂',
+    category: 'REFRIGERANTS',
+    molarMass: 120.91,
+    Tc: 112.0,
+    Pc: 41.4,
+    table: generateSaturationTable({ Tc: 112.0, Pc: 41.4, Tb: -29.8, M: 120.91, omega: 0.179, cpl: 0.96, Tmin: -50, Tmax: 108 })
+  },
+  'r13': {
+    id: 'r13',
+    name: 'R-13',
+    formula: 'CClF₃',
+    category: 'REFRIGERANTS',
+    molarMass: 104.46,
+    Tc: 28.8,
+    Pc: 38.8,
+    table: generateSaturationTable({ Tc: 28.8, Pc: 38.8, Tb: -81.4, M: 104.46, omega: 0.172, cpl: 0.98, Tmin: -90, Tmax: 27 })
+  },
+  'r14': {
+    id: 'r14',
+    name: 'R-14',
+    formula: 'CF₄',
+    category: 'REFRIGERANTS',
+    molarMass: 88.00,
+    Tc: -45.6,
+    Pc: 37.4,
+    table: generateSaturationTable({ Tc: -45.6, Pc: 37.4, Tb: -127.8, M: 88.00, omega: 0.177, cpl: 1.15, Tmin: -140, Tmax: -48 })
+  },
+  'r21': {
+    id: 'r21',
+    name: 'R-21',
+    formula: 'CHCl₂F',
+    category: 'REFRIGERANTS',
+    molarMass: 102.92,
+    Tc: 178.5,
+    Pc: 51.7,
+    table: generateSaturationTable({ Tc: 178.5, Pc: 51.7, Tb: 8.9, M: 102.92, omega: 0.206, cpl: 1.05, Tmin: -40, Tmax: 172 })
+  },
+  'r22': {
+    id: 'r22',
+    name: 'R-22',
+    formula: 'CHClF₂',
+    category: 'REFRIGERANTS',
+    molarMass: 86.47,
+    Tc: 96.15,
+    Pc: 49.90,
+    table: R22_TABLE
+  },
+  'r23': {
+    id: 'r23',
+    name: 'R-23',
+    formula: 'CHF₃',
+    category: 'REFRIGERANTS',
+    molarMass: 70.01,
+    Tc: 25.9,
+    Pc: 48.3,
+    table: generateSaturationTable({ Tc: 25.9, Pc: 48.3, Tb: -82.1, M: 70.01, omega: 0.260, cpl: 1.35, Tmin: -90, Tmax: 24 })
+  },
+  'r113': {
+    id: 'r113',
+    name: 'R-113',
+    formula: 'C₂Cl₃F₃',
+    category: 'REFRIGERANTS',
+    molarMass: 187.38,
+    Tc: 214.1,
+    Pc: 34.4,
+    table: generateSaturationTable({ Tc: 214.1, Pc: 34.4, Tb: 47.6, M: 187.38, omega: 0.252, cpl: 0.92, Tmin: -20, Tmax: 208 })
+  },
+  'r114': {
+    id: 'r114',
+    name: 'R-114',
+    formula: 'C₂Cl₂F₄',
+    category: 'REFRIGERANTS',
+    molarMass: 170.92,
+    Tc: 145.7,
+    Pc: 32.6,
+    table: generateSaturationTable({ Tc: 145.7, Pc: 32.6, Tb: 3.6, M: 170.92, omega: 0.252, cpl: 0.98, Tmin: -40, Tmax: 140 })
+  },
+  'r123': {
+    id: 'r123',
+    name: 'R-123',
+    formula: 'C₂HCl₂F₃',
+    category: 'REFRIGERANTS',
+    molarMass: 152.93,
+    Tc: 183.7,
+    Pc: 36.7,
+    table: generateSaturationTable({ Tc: 183.7, Pc: 36.7, Tb: 27.8, M: 152.93, omega: 0.282, cpl: 1.02, Tmin: -30, Tmax: 178 })
+  },
   'r134a': {
     id: 'r134a',
-    name: 'R-134a (Tetrafluoroetano)',
+    name: 'R-134a',
     formula: 'CF₃CH₂F',
     category: 'REFRIGERANTS',
     molarMass: 102.03,
@@ -97,9 +306,93 @@ export const FLUID_CATALOG: Record<string, FluidDefinition> = {
     Pc: 40.59,
     table: R134A_TABLE
   },
-  'nh3': {
-    id: 'nh3',
-    name: 'Amônia (R-717)',
+  'r152a': {
+    id: 'r152a',
+    name: 'R-152a',
+    formula: 'C₂H₄F₂',
+    category: 'REFRIGERANTS',
+    molarMass: 66.05,
+    Tc: 113.3,
+    Pc: 45.2,
+    table: generateSaturationTable({ Tc: 113.3, Pc: 45.2, Tb: -24.0, M: 66.05, omega: 0.275, cpl: 1.80, Tmin: -50, Tmax: 108 })
+  },
+  'r404a': {
+    id: 'r404a',
+    name: 'R-404a',
+    formula: 'Blend',
+    category: 'REFRIGERANTS',
+    molarMass: 97.60,
+    Tc: 72.1,
+    Pc: 37.3,
+    table: generateSaturationTable({ Tc: 72.1, Pc: 37.3, Tb: -46.5, M: 97.60, omega: 0.315, cpl: 1.50, Tmin: -60, Tmax: 70 })
+  },
+  'r407c': {
+    id: 'r407c',
+    name: 'R-407c',
+    formula: 'Blend',
+    category: 'REFRIGERANTS',
+    molarMass: 86.20,
+    Tc: 86.2,
+    Pc: 46.3,
+    table: generateSaturationTable({ Tc: 86.2, Pc: 46.3, Tb: -43.6, M: 86.20, omega: 0.300, cpl: 1.55, Tmin: -60, Tmax: 82 })
+  },
+  'r410a': {
+    id: 'r410a',
+    name: 'R-410a',
+    formula: 'Blend',
+    category: 'REFRIGERANTS',
+    molarMass: 72.58,
+    Tc: 71.3,
+    Pc: 49.0,
+    table: generateSaturationTable({ Tc: 71.3, Pc: 49.0, Tb: -51.4, M: 72.58, omega: 0.295, cpl: 1.70, Tmin: -70, Tmax: 68 })
+  },
+  'r500': {
+    id: 'r500',
+    name: 'R-500',
+    formula: 'Azeotrope',
+    category: 'REFRIGERANTS',
+    molarMass: 99.30,
+    Tc: 105.5,
+    Pc: 44.2,
+    table: generateSaturationTable({ Tc: 105.5, Pc: 44.2, Tb: -33.5, M: 99.30, omega: 0.240, cpl: 1.15, Tmin: -50, Tmax: 102 })
+  },
+  'r502': {
+    id: 'r502',
+    name: 'R-502',
+    formula: 'Azeotrope',
+    category: 'REFRIGERANTS',
+    molarMass: 111.60,
+    Tc: 82.2,
+    Pc: 40.7,
+    table: generateSaturationTable({ Tc: 82.2, Pc: 40.7, Tb: -45.3, M: 111.60, omega: 0.250, cpl: 1.25, Tmin: -60, Tmax: 78 })
+  },
+  'r507a': {
+    id: 'r507a',
+    name: 'R-507a',
+    formula: 'Azeotrope',
+    category: 'REFRIGERANTS',
+    molarMass: 98.86,
+    Tc: 70.6,
+    Pc: 37.0,
+    table: generateSaturationTable({ Tc: 70.6, Pc: 37.0, Tb: -47.1, M: 98.86, omega: 0.320, cpl: 1.50, Tmin: -60, Tmax: 68 })
+  },
+  'rc318': {
+    id: 'rc318',
+    name: 'R-c318',
+    formula: 'C₄F₈',
+    category: 'REFRIGERANTS',
+    molarMass: 200.03,
+    Tc: 115.3,
+    Pc: 27.8,
+    table: generateSaturationTable({ Tc: 115.3, Pc: 27.8, Tb: -6.0, M: 200.03, omega: 0.355, cpl: 1.10, Tmin: -40, Tmax: 110 })
+  },
+
+  // -------------------------------------------------------------
+  // CRYOGENICS (11 Substances - exact CATT3 set)
+  // -------------------------------------------------------------
+  'ammonia': {
+    id: 'ammonia',
+    name: 'Ammonia',
     formula: 'NH₃',
     category: 'CRYOGENICS',
     molarMass: 17.031,
@@ -107,15 +400,147 @@ export const FLUID_CATALOG: Record<string, FluidDefinition> = {
     Pc: 113.33,
     table: NH3_TABLE
   },
-  'r22': {
-    id: 'r22',
-    name: 'R-22 (Clorodifluorometano)',
-    formula: 'CHClF₂',
-    category: 'REFRIGERANTS',
-    molarMass: 86.47,
-    Tc: 96.15,
-    Pc: 49.90,
-    table: R22_TABLE
+  'argon': {
+    id: 'argon',
+    name: 'Argon',
+    formula: 'Ar',
+    category: 'CRYOGENICS',
+    molarMass: 39.95,
+    Tc: -122.3,
+    Pc: 48.7,
+    table: generateSaturationTable({ Tc: -122.3, Pc: 48.7, Tb: -185.8, M: 39.95, omega: 0.001, cpl: 1.1, Tmin: -195, Tmax: -125 })
+  },
+  'ethane': {
+    id: 'ethane',
+    name: 'Ethane',
+    formula: 'C₂H₆',
+    category: 'CRYOGENICS',
+    molarMass: 30.07,
+    Tc: 32.2,
+    Pc: 48.7,
+    table: generateSaturationTable({ Tc: 32.2, Pc: 48.7, Tb: -88.6, M: 30.07, omega: 0.099, cpl: 2.4, Tmin: -100, Tmax: 30 })
+  },
+  'ethylene': {
+    id: 'ethylene',
+    name: 'Ethylene',
+    formula: 'C₂H₄',
+    category: 'CRYOGENICS',
+    molarMass: 28.05,
+    Tc: 9.2,
+    Pc: 50.4,
+    table: generateSaturationTable({ Tc: 9.2, Pc: 50.4, Tb: -103.7, M: 28.05, omega: 0.087, cpl: 2.3, Tmin: -140, Tmax: 8 })
+  },
+  'helium': {
+    id: 'helium',
+    name: 'Helium',
+    formula: 'He',
+    category: 'CRYOGENICS',
+    molarMass: 4.003,
+    Tc: -267.9,
+    Pc: 2.27,
+    table: generateSaturationTable({ Tc: -267.9, Pc: 2.27, Tb: -268.9, M: 4.003, omega: -0.39, cpl: 5.2, Tmin: -271.0, Tmax: -268.0 })
+  },
+  'isobutane': {
+    id: 'isobutane',
+    name: 'Iso-Butane',
+    formula: 'i-C₄H₁₀',
+    category: 'CRYOGENICS',
+    molarMass: 58.12,
+    Tc: 134.7,
+    Pc: 36.4,
+    table: generateSaturationTable({ Tc: 134.7, Pc: 36.4, Tb: -11.7, M: 58.12, omega: 0.183, cpl: 2.35, Tmin: -60, Tmax: 130 })
+  },
+  'methane': {
+    id: 'methane',
+    name: 'Methane',
+    formula: 'CH₄',
+    category: 'CRYOGENICS',
+    molarMass: 16.04,
+    Tc: -82.6,
+    Pc: 46.0,
+    table: generateSaturationTable({ Tc: -82.6, Pc: 46.0, Tb: -161.5, M: 16.04, omega: 0.011, cpl: 3.5, Tmin: -180, Tmax: -85 })
+  },
+  'neon': {
+    id: 'neon',
+    name: 'Neon',
+    formula: 'Ne',
+    category: 'CRYOGENICS',
+    molarMass: 20.18,
+    Tc: -228.7,
+    Pc: 27.6,
+    table: generateSaturationTable({ Tc: -228.7, Pc: 27.6, Tb: -246.0, M: 20.18, omega: 0.000, cpl: 1.8, Tmin: -248, Tmax: -230 })
+  },
+  'nitrogen': {
+    id: 'nitrogen',
+    name: 'Nitrogen',
+    formula: 'N₂',
+    category: 'CRYOGENICS',
+    molarMass: 28.01,
+    Tc: -146.9,
+    Pc: 33.9,
+    table: generateSaturationTable({ Tc: -146.9, Pc: 33.9, Tb: -195.8, M: 28.01, omega: 0.037, cpl: 2.0, Tmin: -210, Tmax: -148 })
+  },
+  'oxygen': {
+    id: 'oxygen',
+    name: 'Oxygen',
+    formula: 'O₂',
+    category: 'CRYOGENICS',
+    molarMass: 32.00,
+    Tc: -118.6,
+    Pc: 50.4,
+    table: generateSaturationTable({ Tc: -118.6, Pc: 50.4, Tb: -182.9, M: 32.00, omega: 0.022, cpl: 1.7, Tmin: -218, Tmax: -120 })
+  },
+  'propane': {
+    id: 'propane',
+    name: 'Propane',
+    formula: 'C₃H₈',
+    category: 'CRYOGENICS',
+    molarMass: 44.10,
+    Tc: 96.7,
+    Pc: 42.5,
+    table: generateSaturationTable({ Tc: 96.7, Pc: 42.5, Tb: -42.1, M: 44.10, omega: 0.152, cpl: 2.45, Tmin: -90, Tmax: 94 })
+  },
+
+  // Aliases for compatibility
+  'nh3': {
+    id: 'ammonia',
+    name: 'Ammonia',
+    formula: 'NH₃',
+    category: 'CRYOGENICS',
+    molarMass: 17.031,
+    Tc: 132.25,
+    Pc: 113.33,
+    table: NH3_TABLE
+  },
+  'ch4': {
+    id: 'methane',
+    name: 'Methane',
+    formula: 'CH₄',
+    category: 'CRYOGENICS',
+    molarMass: 16.04,
+    Tc: -82.6,
+    Pc: 46.0,
+    table: generateSaturationTable({ Tc: -82.6, Pc: 46.0, Tb: -161.5, M: 16.04, omega: 0.011, cpl: 3.5, Tmin: -180, Tmax: -85 })
+  },
+  'n2': {
+    id: 'nitrogen',
+    name: 'Nitrogen',
+    formula: 'N₂',
+    category: 'CRYOGENICS',
+    molarMass: 28.01,
+    Tc: -146.9,
+    Pc: 33.9,
+    table: generateSaturationTable({ Tc: -146.9, Pc: 33.9, Tb: -195.8, M: 28.01, omega: 0.037, cpl: 2.0, Tmin: -210, Tmax: -148 })
+  },
+  'o2': {
+    id: 'oxygen',
+    name: 'Oxygen',
+    formula: 'O₂',
+    category: 'CRYOGENICS',
+    molarMass: 32.00,
+    Tc: -118.6,
+    Pc: 50.4,
+    table: generateSaturationTable({ Tc: -118.6, Pc: 50.4, Tb: -182.9, M: 32.00, omega: 0.022, cpl: 1.7, Tmin: -218, Tmax: -120 })
   }
 };
 

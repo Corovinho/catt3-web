@@ -1,12 +1,14 @@
-import React from 'react';
-import { Calculator, Settings, Sparkles, PlusCircle, Trash2, Layers, Cpu } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calculator, Settings, Sparkles, PlusCircle, Trash2, Layers } from 'lucide-react';
 import { CalcMode, SubstanceCategory } from '../types/thermo';
+import { Catt3DesktopMenu } from './Catt3DesktopMenu';
 
 interface MainToolbarProps {
   onOpenCalculate: () => void;
   onOpenUnits: () => void;
   onOpenProcess: () => void;
-  onOpenTablesSubstances: () => void;
+  onOpenTablesSubstancesModal: () => void;
+  onSelectCategory: (category: SubstanceCategory, substanceId?: string) => void;
   onAddCurrentState: () => void;
   onClearLog: () => void;
   diagramType: 'Ts' | 'Pv';
@@ -14,6 +16,7 @@ interface MainToolbarProps {
   calcMode: CalcMode;
   setCalcMode: (m: CalcMode) => void;
   category: SubstanceCategory;
+  substanceId: string;
   activeSubstanceName: string;
 }
 
@@ -21,7 +24,8 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   onOpenCalculate,
   onOpenUnits,
   onOpenProcess,
-  onOpenTablesSubstances,
+  onOpenTablesSubstancesModal,
+  onSelectCategory,
   onAddCurrentState,
   onClearLog,
   diagramType,
@@ -29,34 +33,53 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   calcMode,
   setCalcMode,
   category,
+  substanceId,
   activeSubstanceName,
 }) => {
+  const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState(false);
   const isFluid = category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS';
 
   return (
     <div className="border-b border-slate-300 bg-[#f5f5f5] font-mono select-none">
       {/* Top Menu Bar matching CATT3 */}
       <div className="flex items-center gap-4 px-3 py-1 text-xs border-b border-slate-300 text-slate-800 bg-white">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button onClick={onOpenCalculate} className="hover:bg-slate-200 px-1.5 py-0.5">
             Arquivo
           </button>
           <button onClick={onClearLog} className="hover:bg-slate-200 px-1.5 py-0.5">
             Editar
           </button>
-          <button
-            onClick={onOpenTablesSubstances}
-            className="hover:bg-slate-200 px-1.5 py-0.5 font-bold text-black border border-slate-300 bg-slate-50"
-          >
-            Tabelas / Substâncias
-          </button>
+
+          {/* CATT3 Tables / Substances Dropdown Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setIsDesktopMenuOpen((prev) => !prev)}
+              className={`px-1.5 py-0.5 font-bold border transition-none cursor-pointer flex items-center gap-1 ${
+                isDesktopMenuOpen
+                  ? 'bg-[#0078d7] text-white border-[#0078d7]'
+                  : 'hover:bg-slate-200 text-black border-slate-300 bg-slate-50'
+              }`}
+            >
+              <span>Tabelas / Substâncias</span>
+            </button>
+
+            <Catt3DesktopMenu
+              isOpen={isDesktopMenuOpen}
+              onClose={() => setIsDesktopMenuOpen(false)}
+              currentCategory={category}
+              currentSubstanceId={substanceId}
+              onSelect={onSelectCategory}
+            />
+          </div>
+
           <button onClick={onOpenUnits} className="hover:bg-slate-200 px-1.5 py-0.5">
             Opções
           </button>
           <button
             onClick={() =>
               alert(
-                'CATT3 Web - Computer-Aided Thermodynamic Tables 3.\nVersão em Português para Termodinâmica.\nDesenvolvido com IAPWS-IF97, NIST Shomate e Tabelas de Moran & Shapiro / Çengel.'
+                'CATT3 Web - Computer-Aided Thermodynamic Tables 3.\nVersão completa e fiel para Engenharia Mecânica e Química.\nDesenvolvido com IAPWS-IF97, NIST Shomate e Tabelas de Moran & Shapiro / Çengel.'
               )
             }
             className="hover:bg-slate-200 px-1.5 py-0.5"
@@ -64,13 +87,14 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
             Ajuda
           </button>
         </div>
+
         <div className="ml-auto flex items-center gap-2">
           {isFluid && (
             <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 border border-slate-300 font-bold uppercase">
               Modo: {calcMode === 'GENERAL' ? 'Geral' : 'Saturação'}
             </span>
           )}
-          <span className="text-[11px] text-slate-900 font-bold uppercase">
+          <span className="text-[11px] text-slate-900 font-bold uppercase truncate max-w-[200px] sm:max-w-xs">
             {activeSubstanceName}
           </span>
         </div>
@@ -83,7 +107,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           <div className="flex items-center border border-slate-400 bg-white p-0.5 text-xs mr-1">
             <button
               onClick={() => setCalcMode('GENERAL')}
-              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 ${
+              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer ${
                 calcMode === 'GENERAL' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-100'
               }`}
               title="Modo Propriedades Gerais (qualquer região termodinâmica)"
@@ -92,7 +116,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
             </button>
             <button
               onClick={() => setCalcMode('SATURATION')}
-              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 ${
+              className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer ${
                 calcMode === 'SATURATION' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-100'
               }`}
               title="Modo Propriedades de Saturação (região bifásica / domo)"
@@ -105,18 +129,18 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         {/* Calculate button (Calculator icon) */}
         <button
           onClick={onOpenCalculate}
-          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
           title="Calcular Propriedades da Substância Ativa"
         >
           <Calculator className="w-4 h-4 text-black" />
           <span>Calcular</span>
         </button>
 
-        {/* Tables / Substances quick button */}
+        {/* Tables / Substances quick button - toggles CATT3 desktop menu */}
         <button
-          onClick={onOpenTablesSubstances}
-          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
-          title="Escolher Tabela / Substância (Água, Refrigerantes, Ar, Gases, etc.)"
+          onClick={() => setIsDesktopMenuOpen((prev) => !prev)}
+          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
+          title="Menu CATT3 de Substâncias (Água, Refrigerantes, Criogênicos, Ar, Gases, etc.)"
         >
           <Layers className="w-4 h-4 text-black" />
           <span>Substâncias</span>
@@ -125,7 +149,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         {/* Units button */}
         <button
           onClick={onOpenUnits}
-          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
           title="Sistema de Unidades"
         >
           <Settings className="w-4 h-4 text-black" />
@@ -135,7 +159,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         {/* Process Plotter */}
         <button
           onClick={onOpenProcess}
-          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
           title="Traçar Processo Termodinâmico"
         >
           <Sparkles className="w-4 h-4 text-black" />
@@ -149,13 +173,17 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           <div className="flex items-center border border-slate-400 bg-white p-0.5 text-xs">
             <button
               onClick={() => setDiagramType('Ts')}
-              className={`px-2 py-0.5 ${diagramType === 'Ts' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
+              className={`px-2 py-0.5 cursor-pointer ${
+                diagramType === 'Ts' ? 'bg-black text-white font-bold' : 'text-slate-700 hover:bg-slate-100'
+              }`}
             >
               T-s
             </button>
             <button
               onClick={() => setDiagramType('Pv')}
-              className={`px-2 py-0.5 ${diagramType === 'Pv' ? 'bg-black text-white font-bold' : 'text-slate-700'}`}
+              className={`px-2 py-0.5 cursor-pointer ${
+                diagramType === 'Pv' ? 'bg-black text-white font-bold' : 'text-slate-700 hover:bg-slate-100'
+              }`}
             >
               P-v
             </button>
@@ -167,7 +195,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         {/* Add to log (+) */}
         <button
           onClick={onAddCurrentState}
-          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1 text-xs font-bold"
+          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1 text-xs font-bold cursor-pointer"
           title="Adicionar estado atual ao log (+)"
         >
           <PlusCircle className="w-3.5 h-3.5 text-emerald-700" />
@@ -177,7 +205,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         {/* Clear log */}
         <button
           onClick={onClearLog}
-          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1 text-xs font-bold text-rose-700"
+          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1 text-xs font-bold text-rose-700 cursor-pointer"
           title="Limpar log"
         >
           <Trash2 className="w-3.5 h-3.5" />

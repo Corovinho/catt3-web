@@ -98,7 +98,9 @@ export const App: React.FC = () => {
       if (newCat === 'WATER') {
         st = WaterEngine.solveGeneral({ T: 100, P_MPa: 0.101325 });
       } else if (newCat === 'REFRIGERANTS' || newCat === 'CRYOGENICS') {
-        st = RefrigerantEngine.solve(sid, { mode: 'GENERAL', type: 'T', value: 20, secondProp: 'x', secondVal: 1 });
+        const fluid = FLUID_CATALOG[sid];
+        const defaultT = fluid ? fluid.table[Math.floor(fluid.table.length / 2)].T : 20;
+        st = RefrigerantEngine.solve(sid, { mode: 'GENERAL', type: 'T', value: defaultT, secondProp: 'x', secondVal: 1 });
       } else if (newCat === 'AIR') {
         st = AirEngine.solve('T', 298.15, 1.01325);
       } else if (newCat === 'IDEAL_GASES') {
@@ -370,7 +372,8 @@ export const App: React.FC = () => {
         onOpenCalculate={handleOpenCalculate}
         onOpenUnits={() => setIsUnitsOpen(true)}
         onOpenProcess={() => setIsProcessOpen(true)}
-        onOpenTablesSubstances={() => setIsTablesSubstancesOpen(true)}
+        onOpenTablesSubstancesModal={() => setIsTablesSubstancesOpen(true)}
+        onSelectCategory={handleCategoryChange}
         onAddCurrentState={() => currentState && handleAddStateToLog(currentState)}
         onClearLog={handleClearLog}
         diagramType={diagramType}
@@ -378,6 +381,7 @@ export const App: React.FC = () => {
         calcMode={calcMode}
         setCalcMode={setCalcMode}
         category={category}
+        substanceId={substanceId}
         activeSubstanceName={getSubstanceTitle()}
       />
 
@@ -485,6 +489,8 @@ export const App: React.FC = () => {
         onClose={() => setIsGeneralPropsOpen(false)}
         unitSystem={unitSystem}
         substanceName={getSubstanceTitle()}
+        initialT={currentState ? UnitConverter.fromInternalT(currentState.T, units.T) : 25}
+        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : 0.101325}
         onCalculate={handleCalculateFluidGeneral}
       />
 
@@ -494,6 +500,8 @@ export const App: React.FC = () => {
         onClose={() => setIsFluidSatOpen(false)}
         unitSystem={unitSystem}
         substanceName={getSubstanceTitle()}
+        initialT={currentState ? UnitConverter.fromInternalT(currentState.T, units.T) : 25}
+        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : 0.101325}
         onCalculate={handleCalculateFluidSat}
       />
 
