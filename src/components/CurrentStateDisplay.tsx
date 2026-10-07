@@ -24,7 +24,7 @@ export const CurrentStateDisplay: React.FC<CurrentStateDisplayProps> = ({
     );
   }
 
-  const units = UnitConverter.getUnitLabels(unitSystem, 'bar');
+  const units = UnitConverter.getUnitLabels(unitSystem);
 
   // Convert values for display
   const dispT = UnitConverter.fromInternalT(state.T, units.T);

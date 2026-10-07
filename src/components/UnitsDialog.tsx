@@ -1,27 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UnitSystem } from '../types/thermo';
 import { Check, X, HelpCircle } from 'lucide-react';
 
 interface UnitsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUnitSystem: UnitSystem;
-  onSelectUnitSystem: (system: UnitSystem) => void;
+  currentUnitSystem?: UnitSystem;
+  currentSystem?: UnitSystem;
+  onSelectUnitSystem?: (system: UnitSystem) => void;
+  onSelectSystem?: (system: UnitSystem) => void;
 }
 
 export const UnitsDialog: React.FC<UnitsDialogProps> = ({
   isOpen,
   onClose,
   currentUnitSystem,
+  currentSystem,
   onSelectUnitSystem,
+  onSelectSystem,
 }) => {
-  const [selected, setSelected] = useState<UnitSystem>(currentUnitSystem);
+  const activeSystem = currentSystem || currentUnitSystem || 'SI';
+  const [selected, setSelected] = useState<UnitSystem>(activeSystem);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelected(currentSystem || currentUnitSystem || 'SI');
+    }
+  }, [isOpen, currentSystem, currentUnitSystem]);
 
   if (!isOpen) return null;
 
-  const handleOK = () => {
-    onSelectUnitSystem(selected);
+  const handleApply = (sys: UnitSystem) => {
+    if (onSelectSystem) onSelectSystem(sys);
+    if (onSelectUnitSystem) onSelectUnitSystem(sys);
     onClose();
+  };
+
+  const handleOK = () => {
+    handleApply(selected);
   };
 
   const rows: { id: UnitSystem; num: number; T: string; P: string; V: string; UH: string; S: string }[] = [
@@ -62,6 +78,7 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
                 <tr
                   key={r.id}
                   onClick={() => setSelected(r.id)}
+                  onDoubleClick={() => handleApply(r.id)}
                   className={`cursor-pointer hover:bg-slate-100 transition-colors ${
                     selected === r.id ? 'bg-slate-100 font-bold' : ''
                   }`}

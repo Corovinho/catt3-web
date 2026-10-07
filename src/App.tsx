@@ -409,8 +409,12 @@ export const App: React.FC = () => {
 
   const units = UnitConverter.getUnitLabels(unitSystem);
 
+  const dispCurT = currentState ? UnitConverter.fromInternalT(currentState.T, units.T).toFixed(2) : '';
+  const dispCurP = currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P).toFixed(4) : '';
+  const dispCurS = currentState ? UnitConverter.fromInternalEntropy(currentState.s, units.s).toFixed(4) : '';
+
   const statusText = currentState
-    ? `Valores Atuais: T = ${currentState.T.toFixed(2)} ${units.T}; P = ${currentState.P_MPa.toFixed(4)} ${units.P}; s = ${currentState.s.toFixed(4)} ${units.s}`
+    ? `Valores Atuais: T = ${dispCurT} ${units.T}; P = ${dispCurP} ${units.P}; s = ${dispCurS} ${units.s}`
     : 'Pronto para calcular.';
 
   return (
@@ -610,7 +614,9 @@ export const App: React.FC = () => {
         isOpen={isUnitsOpen}
         onClose={() => setIsUnitsOpen(false)}
         currentSystem={unitSystem}
+        currentUnitSystem={unitSystem}
         onSelectSystem={setUnitSystem}
+        onSelectUnitSystem={setUnitSystem}
       />
 
       {/* Process Wizard Modal */}

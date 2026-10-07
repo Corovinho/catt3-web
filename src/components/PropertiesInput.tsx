@@ -106,7 +106,7 @@ export const PropertiesInput: React.FC<PropertiesInputProps> = ({
   onCalculate,
   error,
 }) => {
-  const units = UnitConverter.getUnitLabels(unitSystem, 'bar');
+  const units = UnitConverter.getUnitLabels(unitSystem);
 
   const isTwoPhaseFluid = category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS';
 
