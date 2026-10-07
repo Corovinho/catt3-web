@@ -118,8 +118,34 @@ export interface ThermodynamicState {
 }
 
 export type ProcessType = 
-  | 'ISOTHERMAL' // T = const
-  | 'ISOBARIC'   // P = const
-  | 'ISENTROPIC'  // s = const
-  | 'ISOCHORIC'  // v = const
-  | 'POLYTROPIC'; // P*v^n = const
+  | 'ISOTHERMAL'  // 1. T = const
+  | 'ISOBARIC'    // 2. P = const
+  | 'ISOCHORIC'   // 3. v = const
+  | 'ISENTROPIC'  // 4. s = const
+  | 'ISENERGIC'   // 5. u = const
+  | 'ISENTHALPIC' // 6. h = const
+  | 'PINVERSE_V'  // 7. P * v = const
+  | 'POLYTROPIC'  // 8. P * v^n = const
+  | 'LINEAR_PV';  // 9. P = a + b*v
+
+export interface ProcessPoint {
+  T: number;
+  P: number;
+  v: number;
+  s: number;
+  h: number;
+  u?: number;
+}
+
+export interface ProcessCurve {
+  id: string;
+  type: ProcessType;
+  label: string;
+  substanceName: string;
+  category: SubstanceCategory;
+  state1: ThermodynamicState;
+  state2: ThermodynamicState;
+  path: ProcessPoint[];
+  work: number;
+  heat: number;
+}

@@ -4,6 +4,7 @@ import {
   SubstanceCategory,
   ThermodynamicState,
   UnitSystem,
+  ProcessCurve,
 } from './types/thermo';
 import { Navbar } from './components/Navbar';
 import { MainToolbar } from './components/MainToolbar';
@@ -20,6 +21,7 @@ import { PsychroCalculateDialog } from './components/PsychroCalculateDialog';
 import { TablesSubstancesModal } from './components/TablesSubstancesModal';
 import { UnitsDialog } from './components/UnitsDialog';
 import { ProcessModal } from './components/ProcessModal';
+import { AboutDialog } from './components/AboutDialog';
 import { WaterEngine } from './engine/water';
 import { RefrigerantEngine, FLUID_CATALOG } from './engine/refrigerants';
 import { AirEngine } from './engine/air';
@@ -46,6 +48,8 @@ export const App: React.FC = () => {
   const [isTablesSubstancesOpen, setIsTablesSubstancesOpen] = useState(false);
   const [isUnitsOpen, setIsUnitsOpen] = useState(false);
   const [isProcessOpen, setIsProcessOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [processCurves, setProcessCurves] = useState<ProcessCurve[]>([]);
 
   // States
   const [currentState, setCurrentState] = useState<ThermodynamicState | null>(null);
@@ -339,6 +343,60 @@ export const App: React.FC = () => {
     );
   };
 
+  const handleExportCSV = () => {
+    if (statesLog.length === 0) {
+      alert('Nenhum estado adicionado ao histórico para exportar.');
+      return;
+    }
+    const curUnits = UnitConverter.getUnitLabels(unitSystem);
+    const header = `#;Substância;Temperatura (${curUnits.T});Pressão (${curUnits.P});Volume Específico (${curUnits.v});Energia Interna (${curUnits.u});Entalpia (${curUnits.h});Entropia (${curUnits.s});Título (x);Fase\n`;
+    const rows = statesLog.map((s, idx) => {
+      const dispT = UnitConverter.fromInternalT(s.T, curUnits.T);
+      const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P);
+      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v);
+      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u);
+      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h);
+      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s);
+      const dispX = s.x !== null && s.x !== undefined ? s.x : '';
+      return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
+    }).join('\n');
+
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `CATT3_Log_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopyTable = () => {
+    if (statesLog.length === 0) {
+      alert('Nenhum estado adicionado ao histórico para copiar.');
+      return;
+    }
+    const curUnits = UnitConverter.getUnitLabels(unitSystem);
+    let md = `| # | Substância | Temperatura [${curUnits.T}] | Pressão [${curUnits.P}] | Volume [${curUnits.v}] | Energia [${curUnits.u}] | Entalpia [${curUnits.h}] | Entropia [${curUnits.s}] | Título | Fase |\n`;
+    md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
+    statesLog.forEach((s, idx) => {
+      const dispT = UnitConverter.fromInternalT(s.T, curUnits.T).toFixed(2);
+      const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P).toFixed(4);
+      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v).toFixed(5);
+      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u).toFixed(2);
+      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h).toFixed(2);
+      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s).toFixed(4);
+      const dispX = s.x !== null && s.x !== undefined ? s.x.toFixed(4) : '';
+      md += `| ${idx + 1} | ${s.substanceName} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
+    });
+    navigator.clipboard.writeText(md);
+    alert('Tabela de histórico copiada para a área de transferência!');
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const getSubstanceTitle = () => {
     if (category === 'WATER') return 'Água / Vapor (H₂O)';
     if (category === 'REFRIGERANTS') return FLUID_CATALOG[substanceId]?.name || 'R-134a';
@@ -383,6 +441,11 @@ export const App: React.FC = () => {
         category={category}
         substanceId={substanceId}
         activeSubstanceName={getSubstanceTitle()}
+        onPrint={handlePrint}
+        onExportCSV={handleExportCSV}
+        onCopyTable={handleCopyTable}
+        onOpenAbout={() => setIsAboutOpen(true)}
+        onClearProcessCurves={() => setProcessCurves([])}
       />
 
       {/* Main Workspace matching CATT3 Screen */}
@@ -410,6 +473,8 @@ export const App: React.FC = () => {
                   currentSubstance={substanceId}
                   diagramType={diagramType}
                   setDiagramType={setDiagramType}
+                  processCurves={processCurves}
+                  onClearProcessCurves={() => setProcessCurves([])}
                 />
               </div>
             </div>
@@ -460,6 +525,8 @@ export const App: React.FC = () => {
               currentSubstance={substanceId}
               diagramType={diagramType}
               setDiagramType={setDiagramType}
+              processCurves={processCurves}
+              onClearProcessCurves={() => setProcessCurves([])}
             />
           </div>
         )}
@@ -550,10 +617,17 @@ export const App: React.FC = () => {
       <ProcessModal
         isOpen={isProcessOpen}
         onClose={() => setIsProcessOpen(false)}
-        states={statesLog}
-        substanceId={substanceId}
-        category={category}
+        currentState={currentState}
+        statesLog={statesLog}
         unitSystem={unitSystem}
+        onAddProcess={(curve) => setProcessCurves((prev) => [...prev, curve])}
+        onAddStateToLog={handleAddStateToLog}
+      />
+
+      {/* About CATT3 Dialog */}
+      <AboutDialog
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { IdealGasEngine, GAS_CATALOG } from './src/engine/idealGases';
 import { CompressibilityEngine } from './src/engine/compressibility';
 import { PsychrometricsEngine } from './src/engine/psychrometrics';
 import { UnitConverter } from './src/engine/units';
+import { ProcessPlotter } from './src/engine/processPlotter';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -249,6 +250,102 @@ assert(approxEq(UnitConverter.toInternalP(145.038, 'psia'), 1.0, 0.1), 'Convers�
 assert(approxEq(UnitConverter.toInternalEnergy(1.0, 'kJ/kg'), 1.0, 0.01), 'Conversão h: 1 kJ/kg -> 1 kJ/kg');
 assert(approxEq(UnitConverter.fromInternalEnergy(1.0, 'Btu/lbm'), 0.42992, 0.1), 'Conversão h: 1 kJ/kg -> 0.42992 Btu/lbm');
 assert(approxEq(UnitConverter.fromInternalEnergy(1.0, 'Btu/lb'), 0.42992, 0.1), 'Conversão h: 1 kJ/kg -> 0.42992 Btu/lb (sinônimo)');
+
+// -----------------------------------------------------------------------------
+// 9. PROCESSOS TERMODINÂMICOS (OS 9 PROCESSOS CLÁSSICOS DO CATT3)
+// -----------------------------------------------------------------------------
+console.log('\n9. TESTANDO OS 9 PROCESSOS DO ASSISTENTE DE PROCESSOS (PLOT PROCESS):');
+const stateBase = WaterEngine.solveGeneral({ T: 150, P_MPa: 1.0 });
+
+// 1. Isotérmico (T = cte)
+const procIsoT = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISOTHERMAL',
+  targetProperty: 'P',
+  targetValue: 0.5,
+});
+assert(approxEq(procIsoT.state2.T, stateBase.T, 0.5), 'Processo Isotérmico: T2 == T1');
+assert(procIsoT.path.length > 5, 'Processo Isotérmico: Caminho gerado');
+
+// 2. Isobárico (P = cte)
+const procIsoP = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISOBARIC',
+  targetProperty: 'T',
+  targetValue: 200,
+});
+assert(approxEq(procIsoP.state2.P_MPa, stateBase.P_MPa, 0.01), 'Processo Isobárico: P2 == P1');
+assert(approxEq(procIsoP.heat, procIsoP.state2.h - procIsoP.state1.h, 0.1), 'Processo Isobárico: q == Delta h');
+
+// 3. Isocórico (v = cte)
+const procIsoV = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISOCHORIC',
+  targetProperty: 'P',
+  targetValue: 0.8,
+});
+assert(approxEq(procIsoV.state2.v, stateBase.v, 0.001), 'Processo Isocórico: v2 == v1');
+assert(approxEq(procIsoV.work, 0, 0.001), 'Processo Isocórico: Trabalho w == 0');
+
+// 4. Isentrópico (s = cte)
+const procIsoS = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISENTROPIC',
+  targetProperty: 'P',
+  targetValue: 0.5,
+});
+assert(approxEq(procIsoS.state2.s, stateBase.s, 0.05), 'Processo Isentrópico: s2 == s1');
+assert(approxEq(procIsoS.heat, 0, 0.001), 'Processo Isentrópico: Calor q == 0');
+
+// 5. Isenérgico (u = cte)
+const procIsoU = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISENERGIC',
+  targetProperty: 'P',
+  targetValue: 0.7,
+});
+assert(procIsoU.path.length > 5, 'Processo Isenérgico: Caminho gerado');
+
+// 6. Isentálpico (h = cte - estrangulamento)
+const procIsoH = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'ISENTHALPIC',
+  targetProperty: 'P',
+  targetValue: 0.5,
+});
+assert(approxEq(procIsoH.state2.h, stateBase.h, 0.5), 'Processo Isentálpico: h2 == h1');
+assert(approxEq(procIsoH.work, 0, 0.001), 'Processo Isentálpico: Trabalho w == 0');
+
+// 7. P inverso em v (P*v = cte)
+const procPInvV = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'PINVERSE_V',
+  targetProperty: 'P',
+  targetValue: 0.5,
+});
+assert(approxEq(procPInvV.state2.P_MPa * procPInvV.state2.v, stateBase.P_MPa * stateBase.v, 0.05), 'Processo P*v = cte: P2*v2 == P1*v1');
+
+// 8. Politrópico (P*v^n = cte)
+const procPoly = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'POLYTROPIC',
+  targetProperty: 'P',
+  targetValue: 0.5,
+  polytropicN: 1.3,
+});
+assert(procPoly.path.length > 5, 'Processo Politrópico: Caminho gerado');
+assert(procPoly.work !== 0, 'Processo Politrópico: Trabalho w calculado');
+
+// 9. Pressão linear com volume (P = a + b*v)
+const procLin = ProcessPlotter.calculateProcess({
+  state1: stateBase,
+  type: 'LINEAR_PV',
+  targetProperty: 'P',
+  targetValue: 0.6,
+  targetV2Linear: stateBase.v * 1.4,
+});
+assert(procLin.path.length > 5, 'Processo Linear: Caminho gerado');
+assert(procLin.work > 0, 'Processo Linear: Trabalho w > 0');
 
 console.log('\n================================================================');
 console.log(`RESULTADO FINAL DOS TESTES:`);

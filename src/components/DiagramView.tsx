@@ -1,5 +1,4 @@
-import React from 'react';
-import { ThermodynamicState, SubstanceCategory } from '../types/thermo';
+import { ThermodynamicState, SubstanceCategory, ProcessCurve } from '../types/thermo';
 import { FLUID_CATALOG } from '../engine/refrigerants';
 
 interface DiagramViewProps {
@@ -8,6 +7,8 @@ interface DiagramViewProps {
   currentSubstance: string;
   diagramType: 'Ts' | 'Pv';
   setDiagramType: (d: 'Ts' | 'Pv') => void;
+  processCurves?: ProcessCurve[];
+  onClearProcessCurves?: () => void;
 }
 
 export const DiagramView: React.FC<DiagramViewProps> = ({
@@ -16,6 +17,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   currentSubstance,
   diagramType,
   setDiagramType,
+  processCurves = [],
+  onClearProcessCurves,
 }) => {
   const width = 640;
   const height = 370;
@@ -744,6 +747,42 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 PONTO CRÍTICO
               </text>
 
+              {/* CATT3 Plotted Thermodynamic Process Curves (T-s) */}
+              {processCurves
+                .filter((c) => c.category === category)
+                .map((c) => {
+                  if (c.path.length < 2) return null;
+                  const d = c.path.reduce((acc, pt, idx) => {
+                    const x = toXTs(pt.s);
+                    const y = toYTs(pt.T);
+                    return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                  }, '');
+                  const midPt = c.path[Math.floor(c.path.length / 2)];
+                  const midX = toXTs(midPt.s);
+                  const midY = toYTs(midPt.T);
+                  return (
+                    <g key={c.id}>
+                      <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                      <circle cx={toXTs(c.state1.s)} cy={toYTs(c.state1.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                      <circle cx={toXTs(c.state2.s)} cy={toYTs(c.state2.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                      <text
+                        x={midX}
+                        y={midY - 8}
+                        fill="#b91c1c"
+                        fontSize="9"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                        textAnchor="middle"
+                        stroke="#ffffff"
+                        strokeWidth="3"
+                        paintOrder="stroke fill"
+                      >
+                        {c.label}
+                      </text>
+                    </g>
+                  );
+                })}
+
               {/* Process Lines connecting states */}
               {plottedStates.map((st, i) => {
                 if (i === 0) return null;
@@ -902,6 +941,42 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 PONTO CRÍTICO
               </text>
 
+              {/* CATT3 Plotted Thermodynamic Process Curves (P-v) */}
+              {processCurves
+                .filter((c) => c.category === category)
+                .map((c) => {
+                  if (c.path.length < 2) return null;
+                  const d = c.path.reduce((acc, pt, idx) => {
+                    const x = toXPv(pt.v);
+                    const y = toYPv(pt.P * 0.1);
+                    return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+                  }, '');
+                  const midPt = c.path[Math.floor(c.path.length / 2)];
+                  const midX = toXPv(midPt.v);
+                  const midY = toYPv(midPt.P * 0.1);
+                  return (
+                    <g key={c.id}>
+                      <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                      <circle cx={toXPv(c.state1.v)} cy={toYPv(c.state1.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                      <circle cx={toXPv(c.state2.v)} cy={toYPv(c.state2.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                      <text
+                        x={midX}
+                        y={midY - 8}
+                        fill="#b91c1c"
+                        fontSize="9"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                        textAnchor="middle"
+                        stroke="#ffffff"
+                        strokeWidth="3"
+                        paintOrder="stroke fill"
+                      >
+                        {c.label}
+                      </text>
+                    </g>
+                  );
+                })}
+
               {/* Process Lines connecting states */}
               {plottedStates.map((st, i) => {
                 if (i === 0) return null;
@@ -995,8 +1070,25 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
             <span className="w-2.5 h-2.5 bg-black inline-block"></span>
             Estados Registrados
           </span>
+          {processCurves.filter((c) => c.category === category).length > 0 && (
+            <span className="flex items-center gap-1.5 text-rose-700 font-bold">
+              <span className="w-3 h-0.5 bg-rose-600 inline-block"></span>
+              Processos Traçados ({processCurves.filter((c) => c.category === category).length})
+            </span>
+          )}
         </div>
-        <span>Total: {plottedStates.length} ponto(s) plotados</span>
+        <div className="flex items-center gap-3">
+          {processCurves.filter((c) => c.category === category).length > 0 && onClearProcessCurves && (
+            <button
+              onClick={onClearProcessCurves}
+              className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-bold text-[10px] uppercase cursor-pointer"
+              title="Limpar todos os processos traçados no diagrama"
+            >
+              Limpar Traçado
+            </button>
+          )}
+          <span>Total: {plottedStates.length} ponto(s) plotados</span>
+        </div>
       </div>
     </div>
   );
