@@ -97,15 +97,36 @@ export interface ThermodynamicState {
   sf?: number;
   sg?: number;
 
-  // Air specific
+  // Air & Gas specific
   Pr?: number;
   vr?: number;
   s0?: number;
+  molarMass?: number; // MW (kg/kmol)
+  gasConstant?: number; // R (kJ/kg-K)
+  P0?: number; // P° (MPa)
+  s_mole?: number; // kJ/kmol·K
+  s0_mole?: number; // kJ/kmol·K
+  h_mole?: number; // kJ/kmol
+  u_mole?: number; // kJ/kmol
+  cp?: number; // kJ/kg·K
+  cv?: number; // kJ/kg·K
+  k_ratio?: number; // cp/cv
+  density?: number; // kg/m³
+
+  // Fluid constants
+  criticalT?: number; // K
+  criticalP?: number; // MPa
 
   // Compressibility specific
   Tr?: number;
   Pr_red?: number;
   Z?: number;
+  Z0?: number;
+  Z1?: number;
+  acentricFactor?: number; // ω
+  h_departure?: number; // (H* - H) / R / Tc
+  s_departure?: number; // (S* - S) / R
+  fugacity_ln?: number; // ln(f / P)
 
   // Psychrometric specific
   Tdb?: number; // °C
@@ -115,6 +136,9 @@ export interface ThermodynamicState {
   Tdp?: number; // °C
   v_psychro?: number; // m³/kg dry air
   h_psychro?: number; // kJ/kg dry air
+  P_vapor?: number; // kPa
+  P_sat?: number; // kPa
+  excessWater?: number; // g/kg dry air
 }
 
 export type ProcessType = 

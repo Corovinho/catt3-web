@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UnitSystem } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
+import { AirEngine } from '../engine/air';
 import { Check, X, HelpCircle } from 'lucide-react';
 
 export type AirInputType = 'T' | 'u' | 'h' | 's0' | 'Pr' | 'vr';
@@ -24,12 +25,12 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
 }) => {
   const [inputType, setInputType] = useState<AirInputType>('T');
   const [valT, setValT] = useState<string>('25'); // °C
-  const [valU, setValU] = useState<string>('214'); // kJ/kg
-  const [valH, setValH] = useState<string>('300'); // kJ/kg
-  const [valS0, setValS0] = useState<string>('1.702'); // kJ/(kg·K)
-  const [valPr, setValPr] = useState<string>('1.386');
-  const [valVr, setValVr] = useState<string>('621');
-  const [valP, setValP] = useState<string>('0.101325'); // MPa default (1 atm = 0.101325 MPa = 1.01325 bar)
+  const [valU, setValU] = useState<string>('213'); // kJ/kg
+  const [valH, setValH] = useState<string>('298'); // kJ/kg
+  const [valS0, setValS0] = useState<string>('6.863'); // kJ/(kg·K)
+  const [valPr, setValPr] = useState<string>('1.09');
+  const [valVr, setValVr] = useState<string>('182');
+  const [valP, setValP] = useState<string>('0.1'); // MPa default (1 atm ~ 0.1 MPa)
 
   if (!isOpen) return null;
 
@@ -43,14 +44,17 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
       // internal engine expects T in Kelvin for solve(propName, value)
       propVal = UnitConverter.toInternalT(t, units.T) + 273.15;
     } else if (inputType === 'u') {
-      propVal = parseFloat(valU);
-      if (isNaN(propVal)) return alert('Insira uma energia interna válida.');
+      const num = parseFloat(valU);
+      if (isNaN(num)) return alert('Insira uma energia interna válida.');
+      propVal = UnitConverter.toInternalEnergy(num, units.u, AirEngine.MW_AIR);
     } else if (inputType === 'h') {
-      propVal = parseFloat(valH);
-      if (isNaN(propVal)) return alert('Insira uma entalpia válida.');
+      const num = parseFloat(valH);
+      if (isNaN(num)) return alert('Insira uma entalpia válida.');
+      propVal = UnitConverter.toInternalEnergy(num, units.h, AirEngine.MW_AIR);
     } else if (inputType === 's0') {
-      propVal = parseFloat(valS0);
-      if (isNaN(propVal)) return alert('Insira uma entropia padrão válida.');
+      const num = parseFloat(valS0);
+      if (isNaN(num)) return alert('Insira uma entropia de referência válida.');
+      propVal = UnitConverter.toInternalEntropy(num, units.s, AirEngine.MW_AIR);
     } else if (inputType === 'Pr') {
       propVal = parseFloat(valPr);
       if (isNaN(propVal) || propVal <= 0) return alert('Insira um valor válido de Pr (> 0).');
@@ -94,11 +98,11 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
             </span>
             {[
               { id: 'T', label: '1. Temperatura' },
-              { id: 'u', label: '2. Energia (u)' },
-              { id: 'h', label: '3. Entalpia (h)' },
-              { id: 's0', label: '4. Entropia (s°)' },
-              { id: 'Pr', label: '5. Pressão Rel. (Pr)' },
-              { id: 'vr', label: '6. Vol. Rel. (vr)' },
+              { id: 'u', label: '2. Energia Interna (u)' },
+              { id: 'h', label: '3. Entalpia Específica (h)' },
+              { id: 's0', label: '4. Entropia de Ref. (s°)' },
+              { id: 'Pr', label: '5. Pressão Reduzida (Pr)' },
+              { id: 'vr', label: '6. Volume Reduzido (vr)' },
             ].map((opt) => (
               <label
                 key={opt.id}

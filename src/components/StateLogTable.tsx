@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ThermodynamicState, UnitSystem, SubstanceCategory } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
-import { Download, Trash2, Copy, Check, Calculator } from 'lucide-react';
+import { Download, Trash2, Copy, Check } from 'lucide-react';
+import { GAS_CATALOG } from '../engine/idealGases';
 
 interface StateLogTableProps {
   states: ThermodynamicState[];
@@ -9,7 +10,7 @@ interface StateLogTableProps {
   activeCategory: SubstanceCategory;
   onClear: () => void;
   onDeleteState: (id: string) => void;
-  onUpdateLabel: (id: string, label: string) => void;
+  onUpdateLabel?: (id: string, label: string) => void;
 }
 
 export const StateLogTable: React.FC<StateLogTableProps> = ({
@@ -20,9 +21,6 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
   onDeleteState,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [stateAIdx, setStateAIdx] = useState<number>(0);
-  const [stateBIdx, setStateBIdx] = useState<number>(states.length > 1 ? 1 : 0);
-
   const units = UnitConverter.getUnitLabels(unitSystem);
 
   const formatNumber = (num: number | undefined | null, minDec: number = 2, maxDec: number = 4) => {
@@ -46,17 +44,62 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const exportCSV = () => {
     if (states.length === 0) return;
-    const header = `#;Substância;Temperatura (${units.T});Pressão (${units.P});Volume Específico (${units.v});Energia Interna (${units.u});Entalpia (${units.h});Entropia (${units.s});Título (x);Fase\n`;
-    const rows = states.map((s, idx) => {
-      const dispT = UnitConverter.fromInternalT(s.T, units.T);
-      const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
-      const dispV = UnitConverter.fromInternalV(s.v, units.v);
-      const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
-      const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
-      const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
-      const dispX = s.x !== null && s.x !== undefined ? s.x : '';
-      return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
-    }).join('\n');
+    let header = '';
+    let rows = '';
+
+    if (activeCategory === 'AIR') {
+      header = `#;Temp (${units.T});Pressure (${units.P});Specific Entropy (Mass) (${units.s});Specific Enthalpy (Mass) (${units.h});Internal Energy (Mass) (${units.u});Specific Entropy (Mole) (kJ/kmol/K);Specific Enthalpy (Mole) (kJ/kmol);Internal Energy (Mole) (kJ/kmol);Reduced Pressure (Pr);Reduced Volume (Vr);Reference Pressure (${units.P});Reference Entropy (Mass) (${units.s});Reference Entropy (Mole) (kJ/kmol/K);Molecular Weight;Gas Constant (${units.s})\n`;
+      rows = states.map((s, idx) => {
+        const dispT = UnitConverter.fromInternalT(s.T, units.T);
+        const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
+        const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
+        const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
+        const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
+        const mw = s.molarMass ?? 28.97;
+        const sMol = s.s_mole ?? (s.s * mw);
+        const hMol = s.h_mole ?? (s.h * mw);
+        const uMol = s.u_mole ?? (s.u * mw);
+        const s0Mol = s.s0_mole ?? ((s.s0 ?? 0) * mw);
+        const rVal = s.gasConstant ?? 0.287;
+        return `${idx + 1};${dispT};${dispP};${dispS};${dispH};${dispU};${sMol.toFixed(1)};${hMol.toFixed(0)};${uMol.toFixed(0)};${s.Pr ?? ''};${s.vr ?? ''};${s.P0 ?? 0.1};${s.s0 ?? ''};${s0Mol.toFixed(1)};${mw.toFixed(2)};${rVal.toFixed(3)}`;
+      }).join('\n');
+    } else if (activeCategory === 'IDEAL_GASES') {
+      header = `#;Gás;Temp (${units.T});Pressure (${units.P});Specific Volume (${units.v});Specific Entropy (Mass) (${units.s});Specific Enthalpy (Mass) (${units.h});Internal Energy (Mass) (${units.u});Specific Entropy (Mole) (kJ/kmol/K);Specific Enthalpy (Mole) (kJ/kmol);Internal Energy (Mole) (kJ/kmol);Molecular Weight;Gas Constant (kJ/kg/K)\n`;
+      rows = states.map((s, idx) => {
+        const gas = GAS_CATALOG[s.substanceId] || GAS_CATALOG['co2'];
+        const M = gas.M;
+        const R = 8.31446 / M;
+        const dispT = UnitConverter.fromInternalT(s.T, units.T);
+        const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
+        const dispV = UnitConverter.fromInternalV(s.v, units.v);
+        const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
+        const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
+        const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
+        return `${idx + 1};${gas.name};${dispT};${dispP};${dispV};${dispS};${dispH};${dispU};${(s.s * M).toFixed(1)};${(s.h * M).toFixed(0)};${(s.u * M).toFixed(0)};${M};${R.toFixed(4)}`;
+      }).join('\n');
+    } else if (activeCategory === 'COMPRESSIBILITY') {
+      header = `#;Tr;Pr;Fator Acentrico (w);Fator Z;Z(0);Z(1);(H*-H)/RTc;(S*-S)/R;ln(f/P);Fase\n`;
+      rows = states.map((s, idx) => {
+        return `${idx + 1};${s.Tr ?? ''};${s.Pr_red ?? ''};${s.acentricFactor ?? 0};${s.Z ?? ''};${s.Z0 ?? s.Z ?? ''};${s.Z1 ?? 0};${s.h_departure ?? ''};${s.s_departure ?? ''};${s.fugacity_ln ?? ''};${UnitConverter.formatPhasePtBr(s.phase)}`;
+      }).join('\n');
+    } else if (activeCategory === 'PSYCHROMETRICS') {
+      header = `#;Bulbo Seco (C);Bulbo Umido (C);Ponto Orvalho (C);UR (%);w (g/kg);Entalpia (kJ/kg);Volume (m3/kg);Pressao (kPa)\n`;
+      rows = states.map((s, idx) => {
+        return `${idx + 1};${s.Tdb ?? s.T};${s.Twb ?? ''};${s.Tdp ?? ''};${s.RH ?? ''};${s.w ? (s.w * 1000).toFixed(2) : ''};${s.h_psychro ?? s.h};${s.v_psychro ?? s.v};${(s.P_MPa * 1000).toFixed(2)}`;
+      }).join('\n');
+    } else {
+      header = `#;Substância;Temp (${units.T});Pressure (${units.P});Specific Volume (${units.v});Internal Energy (${units.u});Specific Enthalpy (${units.h});Specific Entropy (${units.s});Quality;Phase\n`;
+      rows = states.map((s, idx) => {
+        const dispT = UnitConverter.fromInternalT(s.T, units.T);
+        const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
+        const dispV = UnitConverter.fromInternalV(s.v, units.v);
+        const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
+        const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
+        const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
+        const dispX = s.x !== null && s.x !== undefined ? s.x : '';
+        return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
+      }).join('\n');
+    }
 
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -70,7 +113,7 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
 
   const copyTableMarkdown = () => {
     if (states.length === 0) return;
-    let md = `| # | Substância | Temperatura [${units.T}] | Pressão [${units.P}] | Volume [${units.v}] | Energia [${units.u}] | Entalpia [${units.h}] | Entropia [${units.s}] | Título | Fase |\n`;
+    let md = `| # | Substância | Temp [${units.T}] | Pressão [${units.P}] | Volume Específico [${units.v}] | Energia Interna [${units.u}] | Entalpia Específica [${units.h}] | Entropia Específica [${units.s}] | Título | Fase |\n`;
     md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
     states.forEach((s, idx) => {
       const dispT = formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2);
@@ -87,13 +130,6 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  // Delta calculations
-  const stateA = states[stateAIdx] || states[0];
-  const stateB = states[stateBIdx] || states[1];
-  const deltaH = stateA && stateB ? stateB.h - stateA.h : 0;
-  const deltaS = stateA && stateB ? stateB.s - stateA.s : 0;
-  const deltaT = stateA && stateB ? stateB.T - stateA.T : 0;
 
   return (
     <div className="bg-white border-2 border-slate-900 p-3 sm:p-4 shadow-sm space-y-3 font-mono">
@@ -147,80 +183,206 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
           Nenhum estado adicionado ao log ainda. Calcule propriedades e adicione ao log.
         </div>
       ) : (
-        <div className="border border-slate-400 overflow-x-auto max-h-[280px]">
-          <table className="w-full text-left text-xs font-mono border-collapse">
-            <thead className="bg-[#e8e8e8] text-slate-900 border-b border-slate-400 text-[11px] font-bold sticky top-0">
-              {/* Category-Specific Table Headers */}
-              {activeCategory === 'PSYCHROMETRICS' ? (
-                <tr>
-                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                  <th className="py-1.5 px-2 text-left border-r border-slate-300">Substância</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Bulbo Seco (Tbs)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Bulbo Úmido (Tbu)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Ponto Orvalho (Tpo)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">UR (%)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">w (g/kg)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume (m³/kg)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (kJ/kg)</th>
-                  <th className="py-1.5 px-1 text-center w-8"></th>
-                </tr>
+        <div className="border border-slate-400 overflow-x-auto max-h-[300px]">
+          <table className="w-full text-left text-xs font-mono border-collapse whitespace-nowrap">
+            <thead className="bg-[#e8e8e8] text-slate-900 border-b border-slate-400 text-[11px] font-bold sticky top-0 shadow-xs">
+              {/* ==================== 1. AIR SPREADSHEET (EXACT PHOTO 1 MATCH) ==================== */}
+              {activeCategory === 'AIR' ? (
+                <>
+                  <tr className="border-b border-slate-300 text-slate-900">
+                    <th className="py-1 px-2 text-center border-r border-slate-300 w-8">#</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Temp</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Pressure</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Entropy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Internal Energy</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Entropy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Internal Energy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reduced Pressure</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reduced Volume</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reference Pressure</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reference Entropy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reference Entropy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Molecular Weight</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Gas Constant</th>
+                    <th className="py-1 px-1 text-center w-8"></th>
+                  </tr>
+                  <tr className="bg-[#dfdfdf] text-[10px] text-slate-600 font-normal border-b border-slate-400">
+                    <th className="py-0.5 px-2 text-center border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.T}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.P}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.s}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.h}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.u}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol/K</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.P}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.s}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol/K</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.s}</th>
+                    <th className="py-0.5 px-1 text-center"></th>
+                  </tr>
+                </>
+              ) : activeCategory === 'IDEAL_GASES' ? (
+                <>
+                  <tr className="border-b border-slate-300 text-slate-900">
+                    <th className="py-1 px-2 text-center border-r border-slate-300 w-8">#</th>
+                    <th className="py-1 px-2 text-left border-r border-slate-300">Gás</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Temp</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Pressure</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Volume</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Entropy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Internal Energy (Mass)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Entropy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Internal Energy (Mole)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Molecular Weight</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Gas Constant</th>
+                    <th className="py-1 px-1 text-center w-8"></th>
+                  </tr>
+                  <tr className="bg-[#dfdfdf] text-[10px] text-slate-600 font-normal border-b border-slate-400">
+                    <th className="py-0.5 px-2 text-center border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-left border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.T}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.P}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.v}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.s}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.h}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.u}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol/K</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kmol</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kg/kmol</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kg/K</th>
+                    <th className="py-0.5 px-1 text-center"></th>
+                  </tr>
+                </>
               ) : activeCategory === 'COMPRESSIBILITY' ? (
-                <tr>
-                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Tr</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pr</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300 font-bold">Fator Z</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">v'r</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">(h*-h)/RTc</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">(s*-s)/R</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">ln(f/P)</th>
-                  <th className="py-1.5 px-2 text-left">Fase</th>
-                  <th className="py-1.5 px-1 text-center w-8"></th>
-                </tr>
-              ) : activeCategory === 'AIR' ? (
-                <tr>
-                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (h)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia (u)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s°)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pr</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">vr</th>
-                  <th className="py-1.5 px-1 text-center w-8"></th>
-                </tr>
+                <>
+                  <tr className="border-b border-slate-300 text-slate-900">
+                    <th className="py-1 px-2 text-center border-r border-slate-300 w-8">#</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reduced Temp. (Tr)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Reduced Press. (Pr)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Acentric Factor (ω)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300 font-bold">Fator Z</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Z(0) Simples</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Z(1) Desvio</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">v'r</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">(H* - H) / R / Tc</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">(S* - S) / R</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">ln(f / P)</th>
+                    <th className="py-1 px-2 text-left">Phase</th>
+                    <th className="py-1 px-1 text-center w-8"></th>
+                  </tr>
+                  <tr className="bg-[#dfdfdf] text-[10px] text-slate-600 font-normal border-b border-slate-400">
+                    <th className="py-0.5 px-2 text-center border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">-</th>
+                    <th className="py-0.5 px-2 text-left">-</th>
+                    <th className="py-0.5 px-1 text-center"></th>
+                  </tr>
+                </>
+              ) : activeCategory === 'PSYCHROMETRICS' ? (
+                <>
+                  <tr className="border-b border-slate-300 text-slate-900">
+                    <th className="py-1 px-2 text-center border-r border-slate-300 w-8">#</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Temp. (T)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Wet Bulb Temp (Twet)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Dew Point Temp (Tdew)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Relative Humidity (phi)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Absolute Humidity (w)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy (h)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Volume (v)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Total Pressure (P)</th>
+                    <th className="py-1 px-1 text-center w-8"></th>
+                  </tr>
+                  <tr className="bg-[#dfdfdf] text-[10px] text-slate-600 font-normal border-b border-slate-400">
+                    <th className="py-0.5 px-2 text-center border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">°C</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">°C</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">°C</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">%</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">g/kg ar</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kJ/kg</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">m³/kg</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">kPa</th>
+                    <th className="py-0.5 px-1 text-center"></th>
+                  </tr>
+                </>
               ) : (
-                /* Standard Fluid Columns (Water, Refrigerants, Cryogenics, Ideal Gases) */
-                <tr>
-                  <th className="py-1.5 px-2 text-center border-r border-slate-300 w-10">#</th>
-                  <th className="py-1.5 px-2 text-left border-r border-slate-300">Substância</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Temperatura</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Pressão</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Volume</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Energia (u)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entalpia (h)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Entropia (s)</th>
-                  <th className="py-1.5 px-2 text-right border-r border-slate-300">Título (x)</th>
-                  <th className="py-1.5 px-2 text-left">Fase</th>
-                  <th className="py-1.5 px-1 text-center w-8"></th>
-                </tr>
+                /* ==================== 5. FLUID SPREADSHEET (WATER, REFRIGERANTS, CRYOGENICS - EXACT PHOTO 3 MATCH) ==================== */
+                <>
+                  <tr className="border-b border-slate-300 text-slate-900">
+                    <th className="py-1 px-2 text-center border-r border-slate-300 w-8">#</th>
+                    <th className="py-1 px-2 text-left border-r border-slate-300">Substância</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Temp</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Pressure</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Volume</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Internal Energy</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Enthalpy</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Specific Entropy</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">Quality</th>
+                    <th className="py-1 px-2 text-left border-r border-slate-300">Phase</th>
+                    <th className="py-1 px-1 text-center w-8"></th>
+                  </tr>
+                  <tr className="bg-[#dfdfdf] text-[10px] text-slate-600 font-normal border-b border-slate-400">
+                    <th className="py-0.5 px-2 text-center border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-left border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.T}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.P}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.v}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.u}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.h}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300">{units.s}</th>
+                    <th className="py-0.5 px-2 text-right border-r border-slate-300"></th>
+                    <th className="py-0.5 px-2 text-left border-r border-slate-300"></th>
+                    <th className="py-0.5 px-1 text-center"></th>
+                  </tr>
+                </>
               )}
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white text-slate-900">
               {states.map((s, idx) => {
-                if (activeCategory === 'PSYCHROMETRICS') {
+                {/* 1. AIR ROW */}
+                if (activeCategory === 'AIR') {
+                  const mw = s.molarMass ?? 28.97;
+                  const sMol = s.s_mole ?? (s.s * mw);
+                  const hMol = s.h_mole ?? (s.h * mw);
+                  const uMol = s.u_mole ?? (s.u * mw);
+                  const s0Mol = s.s0_mole ?? ((s.s0 ?? 0) * mw);
+                  const rVal = s.gasConstant ?? 0.287;
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
-                      <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate">{s.substanceName}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.Tdb ?? s.T, 2, 2)} °C</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Twb, 2, 2)} °C</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Tdp, 2, 2)} °C</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.RH, 1, 2)}%</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.w ? formatNumber(s.w * 1000, 2, 2) : '-'}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(s.v_psychro ?? s.v)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h_psychro ?? s.h, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(sMol, 0, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(hMol, 0, 0)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(uMol, 0, 0)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Pr, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.vr, 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.P0 ?? 0.1, 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s0, 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s0Mol, 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(mw, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(rVal, 3, 4)}</td>
                       <td className="py-1 px-1 text-center">
                         <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -230,18 +392,51 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                   );
                 }
 
+                {/* 2. IDEAL GASES ROW */}
+                if (activeCategory === 'IDEAL_GASES') {
+                  const gas = GAS_CATALOG[s.substanceId] || GAS_CATALOG['co2'];
+                  const M = gas.M;
+                  const R = 8.31446 / M;
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
+                      <td className="py-1 px-2 text-left border-r border-slate-200 font-bold">{gas.name}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(UnitConverter.fromInternalV(s.v, units.v))}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 1, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 1, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s * M, 1, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h * M, 0, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.u * M, 0, 1)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(M, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(R, 4, 4)}</td>
+                      <td className="py-1 px-1 text-center">
+                        <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                {/* 3. COMPRESSIBILITY ROW */}
                 if (activeCategory === 'COMPRESSIBILITY') {
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Tr, 3, 3)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Pr_red, 3, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.Tr, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.Pr_red, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.acentricFactor ?? 0, 4, 4)}</td>
                       <td className="py-1 px-2 text-right border-r border-slate-200 font-bold text-black">{formatNumber(s.Z, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Z0 ?? s.Z, 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Z1 ?? 0, 4, 4)}</td>
                       <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.v, 4, 4)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Tr && s.Z ? formatNumber(Math.max(0, (1 - s.Z) * 2.5), 3, 3) : '-'}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Tr && s.Z ? formatNumber(Math.max(0, -Math.log(Math.max(0.01, s.Z)) * 1.5), 3, 3) : '-'}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.Z ? formatNumber(s.Z - 1 - Math.log(Math.max(0.01, s.Z)), 3, 3) : '-'}</td>
-                      <td className="py-1 px-2 text-left text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h_departure ?? (s.Tr && s.Z ? Math.max(0, (1 - s.Z) * 2.5) : 0), 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s_departure ?? (s.Tr && s.Z ? Math.max(0, -Math.log(Math.max(0.01, s.Z)) * 1.5) : 0), 4, 4)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.fugacity_ln ?? (s.Z ? s.Z - 1 - Math.log(Math.max(0.01, s.Z)) : 0), 4, 4)}</td>
+                      <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
                       <td className="py-1 px-1 text-center">
                         <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -251,18 +446,19 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                   );
                 }
 
-                if (activeCategory === 'AIR') {
+                {/* 4. PSYCHROMETRICS ROW */}
+                if (activeCategory === 'PSYCHROMETRICS') {
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.T, 2, 2)} {units.T}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)} {units.P}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h, 2, 2)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.u, 2, 2)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s, 4, 4)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.s0, 4, 4)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Pr, 3, 4)}</td>
-                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.vr, 2, 3)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.Tdb ?? s.T, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Twb, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.Tdp, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(s.RH, 1, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{s.w ? formatNumber(s.w * 1000, 2, 2) : '-'}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.h_psychro ?? s.h, 2, 2)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(s.v_psychro ?? s.v)}</td>
+                      <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(s.P_MPa * 1000, 2, 2)}</td>
                       <td className="py-1 px-1 text-center">
                         <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -272,34 +468,21 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                   );
                 }
 
-                /* Standard Fluid & Gas Row */
-                const dispT = UnitConverter.fromInternalT(s.T, units.T);
-                const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
-                const dispV = UnitConverter.fromInternalV(s.v, units.v);
-                const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
-                const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
-                const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
-
+                {/* 5. FLUIDS (WATER, REFRIGERANTS, CRYOGENICS) ROW - EXACT MATCH TO IMAGE 3 */}
                 return (
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{idx + 1}</td>
-                    <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate max-w-[120px]">{s.substanceName}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispT, 2, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-semibold">{formatNumber(dispP, 2, 4)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(dispV)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(dispU, 2, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispH, 2, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(dispS, 3, 4)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200 text-slate-800">
-                      {s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : ''}
-                    </td>
-                    <td className="py-1 px-2 text-left text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
+                    <td className="py-1 px-2 text-left border-r border-slate-200 font-bold truncate max-w-[150px]">{s.substanceName}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(UnitConverter.fromInternalV(s.v, units.v))}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 4)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : '-'}</td>
+                    <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
                     <td className="py-1 px-1 text-center">
-                      <button
-                        onClick={() => onDeleteState(s.id)}
-                        className="text-slate-400 hover:text-rose-600"
-                        title="Remover estado"
-                      >
+                      <button onClick={() => onDeleteState(s.id)} className="text-slate-400 hover:text-rose-600" title="Remover">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
@@ -308,50 +491,6 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* Delta Analysis Calculator */}
-      {states.length >= 2 && (
-        <div className="bg-slate-50 border border-slate-300 p-2.5 space-y-2 text-xs">
-          <div className="flex items-center gap-2 font-bold text-slate-900 uppercase text-[11px]">
-            <Calculator className="w-3.5 h-3.5 text-black" />
-            <span>Análise de Processo (Estado A → Estado B)</span>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-600">Estado A:</span>
-              <select
-                value={stateAIdx}
-                onChange={(e) => setStateAIdx(Number(e.target.value))}
-                className="bg-white border border-slate-300 px-2 py-0.5 text-slate-900"
-              >
-                {states.map((s, idx) => (
-                  <option key={s.id} value={idx}>#{idx + 1} ({s.substanceName})</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-600">Estado B:</span>
-              <select
-                value={stateBIdx}
-                onChange={(e) => setStateBIdx(Number(e.target.value))}
-                className="bg-white border border-slate-300 px-2 py-0.5 text-slate-900"
-              >
-                {states.map((s, idx) => (
-                  <option key={s.id} value={idx}>#{idx + 1} ({s.substanceName})</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-3 pl-2">
-              <span>Δh = <strong className="text-black">{formatNumber(deltaH, 2)} {units.h}</strong></span>
-              <span>Δs = <strong className="text-black">{formatNumber(deltaS, 4)} {units.s}</strong></span>
-              <span>ΔT = <strong className="text-black">{formatNumber(deltaT, 2)} {units.T}</strong></span>
-            </div>
-          </div>
         </div>
       )}
     </div>

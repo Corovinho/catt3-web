@@ -146,13 +146,13 @@ assert(approxEq(o2State.P, 1.013, 2.0), 'Oxigênio a -182.9°C: P ~ 1.013 bar (1
 // -----------------------------------------------------------------------------
 console.log('\n4. TESTANDO TABELA DE AR (AR COMO GÁS IDEAL VARIÁVEL):');
 
-// Ar a T = 300 K (Moran A-22 / Çengel A-17)
+// Ar a T = 300 K (CATT3 / Sonntag-Borgnakke-Van Wylen)
 const air300 = AirEngine.solve('T', 300, 1.01325);
 assert(approxEq(air300.h, 300.19, 0.5), 'Ar a 300 K: h ~ 300.19 kJ/kg', `Obtido: ${air300.h}`);
 assert(approxEq(air300.u, 214.07, 0.5), 'Ar a 300 K: u ~ 214.07 kJ/kg', `Obtido: ${air300.u}`);
-assert(approxEq(air300.s0 || 0, 1.70203, 0.5), 'Ar a 300 K: s° ~ 1.702 kJ/kg·K', `Obtido: ${air300.s0}`);
-assert(approxEq(air300.Pr || 0, 1.3860, 1.0), 'Ar a 300 K: Pr ~ 1.386', `Obtido: ${air300.Pr}`);
-assert(approxEq(air300.vr || 0, 621.2, 1.0), 'Ar a 300 K: vr ~ 621.2', `Obtido: ${air300.vr}`);
+assert(approxEq(air300.s0 || 0, 6.869, 0.5), 'Ar a 300 K: s° ~ 6.869 kJ/kg·K (CATT3)', `Obtido: ${air300.s0}`);
+assert(approxEq(air300.Pr || 0, 1.115, 0.5), 'Ar a 300 K: Pr ~ 1.115 (CATT3)', `Obtido: ${air300.Pr}`);
+assert(approxEq(air300.vr || 0, 179.5, 0.5), 'Ar a 300 K: vr ~ 179.5 (CATT3)', `Obtido: ${air300.vr}`);
 
 // Ar a T = 500 K
 const air500 = AirEngine.solve('T', 500, 1.01325);
