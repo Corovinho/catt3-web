@@ -36,7 +36,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
                 Computer-Aided Thermodynamic Tables 3
               </h4>
               <p className="text-[11px] text-slate-600 font-bold">
-                Versão Web 3.2 — Padrão Didático e Científico para Engenharia
+                Versão de teste 1 / Professor Luiz Mariano Pereira — Padrão Didático e Científico para Engenharia
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">
                 Desenvolvido como extensão moderna e multiplataforma do software CATT3 clássico de Richard E. Sonntag e Claus Borgnakke.

@@ -49,8 +49,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase">CATT3 Web</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-700 border border-slate-300">v3.2</span>
+              <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">CATT3 Web</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-300 tracking-tight whitespace-nowrap hidden sm:inline-block">
+                versão de teste 1 / professor Luiz Mariano Pereira
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-300 sm:hidden">
+                versão de teste 1
+              </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Tabelas Termodinâmicas Computacionais</p>
           </div>
