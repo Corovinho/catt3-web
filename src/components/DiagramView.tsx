@@ -1,5 +1,6 @@
 import { ThermodynamicState, SubstanceCategory, ProcessCurve } from '../types/thermo';
 import { FLUID_CATALOG } from '../engine/refrigerants';
+import { WATER_TS_DOME, WATER_PV_DOME } from '../engine/waterDome';
 
 interface DiagramViewProps {
   states: ThermodynamicState[];
@@ -30,53 +31,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   // =========================================================================
   // 1. FLUIDS (WATER, REFRIGERANTS, CRYOGENICS) - T-s & P-v
   // =========================================================================
-  const tsDomeWater = [
-    { s: 0.0, T: 0.01 },
-    { s: 0.367, T: 25 },
-    { s: 0.704, T: 50 },
-    { s: 1.026, T: 75 },
-    { s: 1.307, T: 100 },
-    { s: 1.842, T: 150 },
-    { s: 2.331, T: 200 },
-    { s: 2.797, T: 250 },
-    { s: 3.255, T: 300 },
-    { s: 3.800, T: 350 },
-    { s: 4.412, T: 373.95 }, // Ponto Crítico T-s
-    { s: 5.000, T: 350 },
-    { s: 5.705, T: 300 },
-    { s: 6.287, T: 250 },
-    { s: 6.838, T: 200 },
-    { s: 7.359, T: 150 },
-    { s: 7.355, T: 100 },
-    { s: 7.638, T: 75 },
-    { s: 8.076, T: 50 },
-    { s: 8.558, T: 25 },
-    { s: 9.156, T: 0.01 },
-  ];
-
-  const pvDomeWater = [
-    { v: 0.001000, P: 0.000611 },
-    { v: 0.001003, P: 0.00317 },
-    { v: 0.001012, P: 0.01235 },
-    { v: 0.001026, P: 0.03858 },
-    { v: 0.001044, P: 0.101325 },
-    { v: 0.001091, P: 0.476 },
-    { v: 0.001157, P: 1.554 },
-    { v: 0.001251, P: 3.974 },
-    { v: 0.001404, P: 8.588 },
-    { v: 0.001741, P: 16.53 },
-    { v: 0.003106, P: 22.064 }, // Ponto Crítico P-v
-    { v: 0.00881,  P: 16.53 },
-    { v: 0.02167,  P: 8.588 },
-    { v: 0.05013,  P: 3.974 },
-    { v: 0.1274,   P: 1.554 },
-    { v: 0.3928,   P: 0.476 },
-    { v: 1.673,    P: 0.101325 },
-    { v: 4.131,    P: 0.03858 },
-    { v: 12.03,    P: 0.01235 },
-    { v: 43.36,    P: 0.00317 },
-    { v: 206.1,    P: 0.000611 },
-  ];
+  const tsDomeWater = WATER_TS_DOME;
+  const pvDomeWater = WATER_PV_DOME;
 
   // Fluid Dome selection & dynamic scale bounds
   const fluidDef = (category === 'REFRIGERANTS' || category === 'CRYOGENICS')
@@ -91,7 +47,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   let critV = 0.003106;
 
   let minS = 0, maxS = 10;
-  let minT = 0, maxT = 450;
+  let minT = 0, maxT = 400;
   let minP = 0, maxP = 25; // MPa
   let minLogV = -3.2, maxLogV = 1.0;
 
@@ -673,8 +629,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Ts' && (
             <>
               {/* T Horizontal Grid Lines */}
-              {[0.2, 0.4, 0.6, 0.8].map((f) => {
-                const T = Math.round(minT + f * (maxT - minT));
+              {(category === 'WATER' ? [100, 200, 300] : [0.2, 0.4, 0.6, 0.8].map((f) => Math.round(minT + f * (maxT - minT)))).map((T) => {
                 return (
                   <g key={T}>
                     <line
@@ -700,8 +655,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               })}
 
               {/* s Vertical Grid Lines */}
-              {[0.2, 0.4, 0.6, 0.8].map((f) => {
-                const s = Number((minS + f * (maxS - minS)).toFixed(2));
+              {(category === 'WATER' ? [2, 4, 6, 8] : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minS + f * (maxS - minS)).toFixed(2)))).map((s) => {
                 return (
                   <g key={s}>
                     <line
@@ -865,8 +819,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Pv' && (
             <>
               {/* P Horizontal Grid Lines */}
-              {[0.2, 0.4, 0.6, 0.8].map((f) => {
-                const P = Number((minP + f * (maxP - minP)).toFixed(2));
+              {(category === 'WATER' ? [5, 10, 15, 20] : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minP + f * (maxP - minP)).toFixed(2)))).map((P) => {
                 return (
                   <g key={P}>
                     <line
