@@ -43,12 +43,18 @@ export class PsychrometricsEngine {
       Tdp = this.dewPointFromPv(Pv);
       w = 0.62198 * (Pv / (P - Pv));
 
-      // Estimate Twb via Stull formula
-      Twb = Tdb * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5)) +
-            Math.atan(Tdb + RH) -
-            Math.atan(RH - 1.676331) +
-            0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) -
-            4.686035;
+      if (RH >= 99.9) {
+        Twb = Tdb;
+        Tdp = Tdb;
+      } else {
+        // Estimate Twb via Stull formula
+        Twb = Tdb * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5)) +
+              Math.atan(Tdb + RH) -
+              Math.atan(RH - 1.676331) +
+              0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) -
+              4.686035;
+        Twb = Math.min(Tdb, Twb);
+      }
     } else if (params.inputMode === 'Twb') {
       Twb = Math.min(Tdb, params.value);
       const Pvs_wb = this.satVaporPressure(Twb);

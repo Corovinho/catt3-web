@@ -57,8 +57,8 @@ export class CompressibilityEngine {
     return Math.max(0.05, Math.min(5.0, Z));
   }
 
-  static solve(Pr: number, Tr: number): ThermodynamicState {
-    const Z = this.calculateZ(Pr, Tr);
+  static solve(Pr: number, Tr: number, omega: number = 0.0): ThermodynamicState {
+    const Z = this.calculateZ(Pr, Tr, omega);
     // Ideal reduced volume: v'_r = Z * Tr / Pr
     const v_prime_r = (Z * Tr) / Pr;
 
@@ -80,6 +80,7 @@ export class CompressibilityEngine {
       phase: Z < 0.3 ? 'Subcooled Liquid' : (Z > 0.8 ? 'Gas' : 'Saturated Mixture'),
       Tr,
       Pr_red: Pr,
+      acentricFactor: omega,
       Z
     };
   }

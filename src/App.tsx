@@ -81,6 +81,31 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Global Keyboard Shortcuts (F1: About, F4: Process, F6: Units, Ins: Add to Log)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.key === 'F1') {
+        e.preventDefault();
+        setIsAboutOpen(true);
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        setIsProcessOpen(true);
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        setIsUnitsOpen(true);
+      } else if (e.key === 'Insert') {
+        e.preventDefault();
+        if (currentState) handleAddStateToLog(currentState);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentState]);
+
   // Update default state when category or substance changes
   const handleCategoryChange = (newCat: SubstanceCategory, newSubId?: string) => {
     setCategory(newCat);
@@ -349,7 +374,7 @@ export const App: React.FC = () => {
     omega: number;
   }) => {
     try {
-      const st = CompressibilityEngine.solve(data.Pr, data.Tr);
+      const st = CompressibilityEngine.solve(data.Pr, data.Tr, data.omega);
       setCurrentState(st);
       handleAddStateToLog(st);
     } catch (err: any) {
