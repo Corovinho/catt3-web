@@ -26,11 +26,17 @@ export const GasCalculateDialog: React.FC<GasCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [valT, setValT] = useState<string>('25'); // °C
-  const [valP, setValP] = useState<string>('0.101325'); // MPa default (1 atm)
+  const [valP, setValP] = useState<string>('0.101325');
+  const units = UnitConverter.getUnitLabels(unitSystem);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const pInit = UnitConverter.fromInternalP(0.101325, units.P);
+      setValP(pInit >= 10 ? pInit.toFixed(1) : pInit.toFixed(4));
+    }
+  }, [isOpen, unitSystem]);
 
   if (!isOpen) return null;
-
-  const units = UnitConverter.getUnitLabels(unitSystem);
 
   const handleOK = () => {
     const tUser = parseFloat(valT);

@@ -159,8 +159,10 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     return pts.reduce((acc, pt, idx) => idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
   };
 
-  // Plotted states filter
-  const plottedStates = states.filter((s) => s.category === category);
+  // Plotted states sorted in chronological order (State 1 -> State 2 -> State 3)
+  const plottedStates = [...states]
+    .filter((s) => s.category === category)
+    .sort((a, b) => (a.stateNumber ?? 0) - (b.stateNumber ?? 0) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
   return (
     <div className="bg-white border-2 border-slate-900 p-3 sm:p-5 shadow-sm space-y-3 font-mono flex flex-col justify-between h-full">
@@ -741,6 +743,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               {plottedStates.map((st, i) => {
                 if (i === 0) return null;
                 const prev = plottedStates[i - 1];
+                if (prev.s === undefined || isNaN(prev.s) || prev.T === undefined || isNaN(prev.T) ||
+                    st.s === undefined || isNaN(st.s) || st.T === undefined || isNaN(st.T)) return null;
                 return (
                   <line
                     key={`line-${i}`}
@@ -934,6 +938,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               {plottedStates.map((st, i) => {
                 if (i === 0) return null;
                 const prev = plottedStates[i - 1];
+                if (prev.v === undefined || isNaN(prev.v) || prev.P_MPa === undefined || isNaN(prev.P_MPa) ||
+                    st.v === undefined || isNaN(st.v) || st.P_MPa === undefined || isNaN(st.P_MPa)) return null;
                 return (
                   <line
                     key={`line-${i}`}

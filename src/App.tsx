@@ -162,25 +162,47 @@ export const App: React.FC = () => {
         st = WaterEngine.solveGeneral(props);
       } else {
         // Refrigerants / Cryogenics
+        const uLabels = UnitConverter.getUnitLabels(unitSystem);
+        const fluid = RefrigerantEngine.getFluid(substanceId);
+        const mm = fluid?.molarMass;
+
         let type: 'T' | 'P' = 'P';
-        let value = data.P ? UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P) * 10 : 1;
+        let value = data.P !== undefined ? UnitConverter.toInternalP(data.P, uLabels.P) * 10 : 1;
         let secondProp: any = 'x';
         let secondVal = data.x ?? 1;
 
         if (data.inputType.startsWith('1_') || data.inputType.startsWith('2_') || data.inputType.startsWith('3_') || data.inputType.startsWith('4_')) {
           type = 'T';
-          value = data.T ? UnitConverter.toInternalT(data.T, UnitConverter.getUnitLabels(unitSystem).T) : 25;
-          if (data.v !== undefined) { secondProp = 'v'; secondVal = data.v; }
-          else if (data.s !== undefined) { secondProp = 's'; secondVal = data.s; }
-          else if (data.x !== undefined) { secondProp = 'x'; secondVal = data.x; }
-          else if (data.P !== undefined) { secondProp = 'P'; secondVal = data.P * 10; }
+          value = data.T !== undefined ? UnitConverter.toInternalT(data.T, uLabels.T) : 25;
+          if (data.v !== undefined) {
+            secondProp = 'v';
+            secondVal = UnitConverter.toInternalV(data.v, uLabels.v, mm);
+          } else if (data.s !== undefined) {
+            secondProp = 's';
+            secondVal = UnitConverter.toInternalEntropy(data.s, uLabels.s, mm);
+          } else if (data.x !== undefined) {
+            secondProp = 'x';
+            secondVal = data.x;
+          } else if (data.P !== undefined) {
+            secondProp = 'P';
+            secondVal = UnitConverter.toInternalP(data.P, uLabels.P) * 10;
+          }
         } else {
           type = 'P';
-          value = data.P ? UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P) * 10 : 1;
-          if (data.v !== undefined) { secondProp = 'v'; secondVal = data.v; }
-          else if (data.h !== undefined) { secondProp = 'h'; secondVal = data.h; }
-          else if (data.s !== undefined) { secondProp = 's'; secondVal = data.s; }
-          else if (data.x !== undefined) { secondProp = 'x'; secondVal = data.x; }
+          value = data.P !== undefined ? UnitConverter.toInternalP(data.P, uLabels.P) * 10 : 1;
+          if (data.v !== undefined) {
+            secondProp = 'v';
+            secondVal = UnitConverter.toInternalV(data.v, uLabels.v, mm);
+          } else if (data.h !== undefined) {
+            secondProp = 'h';
+            secondVal = UnitConverter.toInternalEnergy(data.h, uLabels.h, mm);
+          } else if (data.s !== undefined) {
+            secondProp = 's';
+            secondVal = UnitConverter.toInternalEntropy(data.s, uLabels.s, mm);
+          } else if (data.x !== undefined) {
+            secondProp = 'x';
+            secondVal = data.x;
+          }
         }
 
         st = RefrigerantEngine.solve(substanceId, {
@@ -213,11 +235,40 @@ export const App: React.FC = () => {
       if (category === 'WATER') {
         const tC = data.primaryType === 'T' ? UnitConverter.toInternalT(data.primaryValue, units.T) : 100;
         const pMPa = data.primaryType === 'P' ? UnitConverter.toInternalP(data.primaryValue, units.P) : 0.101325;
-        const x = data.mixtureType === 'sat_liq' ? 0 : (data.mixtureType === 'sat_vap' ? 1 : (data.mixtureValue ?? 0.5));
 
-        st = WaterEngine.solveGeneral(data.primaryType === 'T' ? { T: tC, x } : { P_MPa: pMPa, x });
-        st.mode = 'SATURATION';
+        let secondProp: 'x' | 'v' | 'u' | 'h' | 's' = 'x';
+        let secondVal = 0.5;
+
+        if (data.mixtureType === 'sat_liq') {
+          secondProp = 'x';
+          secondVal = 0;
+        } else if (data.mixtureType === 'sat_vap') {
+          secondProp = 'x';
+          secondVal = 1;
+        } else if (data.mixtureType === 'x') {
+          secondProp = 'x';
+          secondVal = data.mixtureValue ?? 0.5;
+        } else if (data.mixtureType === 'h') {
+          secondProp = 'h';
+          secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 1000, units.h, 18.015);
+        } else if (data.mixtureType === 's') {
+          secondProp = 's';
+          secondVal = UnitConverter.toInternalEntropy(data.mixtureValue ?? 4, units.s, 18.015);
+        } else if (data.mixtureType === 'v') {
+          secondProp = 'v';
+          secondVal = UnitConverter.toInternalV(data.mixtureValue ?? 0.05, units.v, 18.015);
+        }
+
+        st = WaterEngine.solveSaturation({
+          type: data.primaryType,
+          value: data.primaryType === 'T' ? tC : pMPa,
+          secondProp,
+          secondVal,
+        });
       } else {
+        const fluid = RefrigerantEngine.getFluid(substanceId);
+        const mm = fluid?.molarMass;
+
         const primVal = data.primaryType === 'T'
           ? UnitConverter.toInternalT(data.primaryValue, units.T)
           : UnitConverter.toInternalP(data.primaryValue, units.P) * 10;
@@ -226,17 +277,23 @@ export const App: React.FC = () => {
         let secondVal = 0.5;
 
         if (data.mixtureType === 'sat_liq') {
-          secondProp = 'x'; secondVal = 0;
+          secondProp = 'x';
+          secondVal = 0;
         } else if (data.mixtureType === 'sat_vap') {
-          secondProp = 'x'; secondVal = 1;
+          secondProp = 'x';
+          secondVal = 1;
         } else if (data.mixtureType === 'x') {
-          secondProp = 'x'; secondVal = data.mixtureValue ?? 0.5;
+          secondProp = 'x';
+          secondVal = data.mixtureValue ?? 0.5;
         } else if (data.mixtureType === 'h') {
-          secondProp = 'h'; secondVal = data.mixtureValue ?? 200;
+          secondProp = 'h';
+          secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 200, units.h, mm);
         } else if (data.mixtureType === 's') {
-          secondProp = 's'; secondVal = data.mixtureValue ?? 1;
+          secondProp = 's';
+          secondVal = UnitConverter.toInternalEntropy(data.mixtureValue ?? 1, units.s, mm);
         } else if (data.mixtureType === 'v') {
-          secondProp = 'v'; secondVal = data.mixtureValue ?? 0.05;
+          secondProp = 'v';
+          secondVal = UnitConverter.toInternalV(data.mixtureValue ?? 0.05, units.v, mm);
         }
 
         st = RefrigerantEngine.solve(substanceId, {
@@ -561,7 +618,7 @@ export const App: React.FC = () => {
         unitSystem={unitSystem}
         substanceName={getSubstanceTitle()}
         initialT={currentState ? UnitConverter.fromInternalT(currentState.T, units.T) : 25}
-        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : 0.101325}
+        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : UnitConverter.fromInternalP(0.101325, units.P)}
         onCalculate={handleCalculateFluidGeneral}
       />
 
@@ -572,7 +629,7 @@ export const App: React.FC = () => {
         unitSystem={unitSystem}
         substanceName={getSubstanceTitle()}
         initialT={currentState ? UnitConverter.fromInternalT(currentState.T, units.T) : 25}
-        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : 0.101325}
+        initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : UnitConverter.fromInternalP(0.101325, units.P)}
         onCalculate={handleCalculateFluidSat}
       />
 

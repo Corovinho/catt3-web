@@ -545,6 +545,10 @@ export const FLUID_CATALOG: Record<string, FluidDefinition> = {
 };
 
 export class RefrigerantEngine {
+  static getFluid(substanceId: string) {
+    return FLUID_CATALOG[substanceId] || FLUID_CATALOG['r134a'];
+  }
+
   static solve(substanceId: string, params: {
     mode: CalcMode;
     type?: 'T' | 'P';

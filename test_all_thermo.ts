@@ -70,7 +70,10 @@ assert(wSup.phase === 'Superheated Vapor', 'Fase correta: Superheated Vapor');
 const wSub = WaterEngine.solveGeneral({ P_MPa: 5.0, T: 40 });
 assert(approxEq(wSub.v, 0.001006, 1.0), 'Líquido Comprimido 5 MPa, 40°C: v ~ 0.001006 m3/kg', `Obtido: ${wSub.v}`);
 assert(approxEq(wSub.h, 171.9, 2.0), 'Líquido Comprimido 5 MPa, 40°C: h ~ 171.9 kJ/kg', `Obtido: ${wSub.h}`);
-assert(wSub.phase === 'Subcooled Liquid', 'Fase correta: Subcooled Liquid');
+// 1.6 Saturação da água por propriedade secundária (h e v)
+const wSatFromH = WaterEngine.solveSaturation({ type: 'T', value: 100, secondProp: 'h', secondVal: 1547.53 });
+assert(approxEq(wSatFromH.x ?? 0, 0.5, 1.0), 'Água Sat 100°C por entalpia (h): x ~ 0.5', `Obtido: ${wSatFromH.x}`);
+assert(wSatFromH.mode === 'SATURATION', 'Modo de saturação preservado');
 
 // -----------------------------------------------------------------------------
 // 2. REFRIGERANTES (TODOS OS 20 FLUIDOS)

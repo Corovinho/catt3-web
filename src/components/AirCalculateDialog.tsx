@@ -30,11 +30,17 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
   const [valS0, setValS0] = useState<string>('6.863'); // kJ/(kg·K)
   const [valPr, setValPr] = useState<string>('1.09');
   const [valVr, setValVr] = useState<string>('182');
-  const [valP, setValP] = useState<string>('0.1'); // MPa default (1 atm ~ 0.1 MPa)
+  const [valP, setValP] = useState<string>('0.1');
+  const units = UnitConverter.getUnitLabels(unitSystem);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const pInit = UnitConverter.fromInternalP(0.1, units.P);
+      setValP(pInit >= 10 ? pInit.toFixed(1) : pInit.toFixed(3));
+    }
+  }, [isOpen, unitSystem]);
 
   if (!isOpen) return null;
-
-  const units = UnitConverter.getUnitLabels(unitSystem);
 
   const handleOK = () => {
     let propVal = 0;
