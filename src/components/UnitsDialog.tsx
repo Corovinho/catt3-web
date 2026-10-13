@@ -42,9 +42,10 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
 
   const rows: { id: UnitSystem; num: number; T: string; P: string; V: string; UH: string; S: string }[] = [
     { id: 'SI', num: 1, T: 'C', P: 'MPa', V: 'm3/kg', UH: 'kJ/kg', S: 'kJ/kg/K' },
-    { id: 'SI_MOLE', num: 2, T: 'K', P: 'MPa', V: 'dm3/mol', UH: 'kJ/kmol', S: 'kJ/kmol/K' },
-    { id: 'BRITISH', num: 3, T: 'F', P: 'psia', V: 'ft3/lbm', UH: 'Btu/lbm', S: 'Btu/lbm/R' },
-    { id: 'BRITISH_MOLE', num: 4, T: 'R', P: 'psia', V: 'ft3/lbmol', UH: 'Btu/lbmol', S: 'Btu/lbmol/R' },
+    { id: 'SI_KPA', num: 2, T: 'C', P: 'kPa', V: 'm3/kg', UH: 'kJ/kg', S: 'kJ/kg/K' },
+    { id: 'SI_MOLE', num: 3, T: 'K', P: 'MPa', V: 'dm3/mol', UH: 'kJ/kmol', S: 'kJ/kmol/K' },
+    { id: 'BRITISH', num: 4, T: 'F', P: 'psia', V: 'ft3/lbm', UH: 'Btu/lbm', S: 'Btu/lbm/R' },
+    { id: 'BRITISH_MOLE', num: 5, T: 'R', P: 'psia', V: 'ft3/lbmol', UH: 'Btu/lbmol', S: 'Btu/lbmol/R' },
   ];
 
   return (

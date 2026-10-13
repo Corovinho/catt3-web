@@ -1,4 +1,4 @@
-export type UnitSystem = 'SI' | 'SI_MOLE' | 'BRITISH' | 'BRITISH_MOLE';
+export type UnitSystem = 'SI' | 'SI_KPA' | 'SI_MOLE' | 'BRITISH' | 'BRITISH_MOLE';
 
 export type PressureUnit = 'MPa' | 'bar' | 'kPa' | 'psia' | 'atm';
 export type TemperatureUnit = 'C' | 'K' | 'F' | 'R';

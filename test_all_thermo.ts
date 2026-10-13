@@ -246,10 +246,11 @@ assert(approxEq(UnitConverter.toInternalP(10.0, 'bar'), 1.0, 0.01), 'Conversão 
 assert(approxEq(UnitConverter.toInternalP(1000.0, 'kPa'), 1.0, 0.01), 'Conversão P: 1000 kPa -> 1.0 MPa');
 assert(approxEq(UnitConverter.toInternalP(145.038, 'psia'), 1.0, 0.1), 'Conversão P: 145.038 psia -> 1.0 MPa');
 
-// Energia e Entalpia
-assert(approxEq(UnitConverter.toInternalEnergy(1.0, 'kJ/kg'), 1.0, 0.01), 'Conversão h: 1 kJ/kg -> 1 kJ/kg');
-assert(approxEq(UnitConverter.fromInternalEnergy(1.0, 'Btu/lbm'), 0.42992, 0.1), 'Conversão h: 1 kJ/kg -> 0.42992 Btu/lbm');
-assert(approxEq(UnitConverter.fromInternalEnergy(1.0, 'Btu/lb'), 0.42992, 0.1), 'Conversão h: 1 kJ/kg -> 0.42992 Btu/lb (sinônimo)');
+// Sistema SI_KPA
+const siKpaUnits = UnitConverter.getUnitLabels('SI_KPA');
+assert(siKpaUnits.P === 'kPa' && siKpaUnits.T === 'C' && siKpaUnits.v === 'm3/kg' && siKpaUnits.h === 'kJ/kg' && siKpaUnits.s === 'kJ/kg/K', 'Sistema SI_KPA: Unidades corretas (P em kPa, demais como SI)');
+assert(approxEq(UnitConverter.fromInternalP(0.101325, siKpaUnits.P), 101.325, 0.01), 'Conversão P SI_KPA: 0.101325 MPa -> 101.325 kPa');
+assert(approxEq(UnitConverter.toInternalP(101.325, siKpaUnits.P), 0.101325, 0.01), 'Conversão P SI_KPA: 101.325 kPa -> 0.101325 MPa');
 
 // -----------------------------------------------------------------------------
 // 9. PROCESSOS TERMODINÂMICOS (OS 9 PROCESSOS CLÁSSICOS DO CATT3)

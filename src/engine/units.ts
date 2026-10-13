@@ -146,6 +146,15 @@ export class UnitConverter {
           h: 'kJ/kg',
           s: 'kJ/kg/K'
         };
+      case 'SI_KPA':
+        return {
+          T: 'C',
+          P: 'kPa',
+          v: 'm3/kg',
+          u: 'kJ/kg',
+          h: 'kJ/kg',
+          s: 'kJ/kg/K'
+        };
       case 'SI_MOLE':
         return {
           T: 'K',
