@@ -589,6 +589,17 @@ export class RefrigerantEngine {
         phase = 'Saturated Mixture';
         x = (params.secondVal - targetSat.vf) / (targetSat.vg - targetSat.vf);
       }
+    } else if (params.secondProp === 'u' && params.secondVal !== undefined) {
+      if (params.secondVal < targetSat.uf) {
+        phase = 'Subcooled Liquid';
+        x = 0;
+      } else if (params.secondVal > targetSat.ug) {
+        phase = 'Superheated Vapor';
+        x = 1;
+      } else {
+        phase = 'Saturated Mixture';
+        x = (params.secondVal - targetSat.uf) / (targetSat.ug - targetSat.uf);
+      }
     } else if (params.secondProp === 'h' && params.secondVal !== undefined) {
       if (params.secondVal < targetSat.hf) {
         phase = 'Subcooled Liquid';

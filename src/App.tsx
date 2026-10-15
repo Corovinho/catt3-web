@@ -170,6 +170,7 @@ export const App: React.FC = () => {
     T?: number;
     P?: number;
     v?: number;
+    u?: number;
     h?: number;
     s?: number;
     x?: number;
@@ -181,6 +182,7 @@ export const App: React.FC = () => {
         if (data.T !== undefined) props.T = UnitConverter.toInternalT(data.T, UnitConverter.getUnitLabels(unitSystem).T);
         if (data.P !== undefined) props.P_MPa = UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P);
         if (data.v !== undefined) props.v = UnitConverter.toInternalV(data.v, UnitConverter.getUnitLabels(unitSystem).v);
+        if (data.u !== undefined) props.u = UnitConverter.toInternalEnergy(data.u, UnitConverter.getUnitLabels(unitSystem).u);
         if (data.h !== undefined) props.h = UnitConverter.toInternalEnergy(data.h, UnitConverter.getUnitLabels(unitSystem).h);
         if (data.s !== undefined) props.s = UnitConverter.toInternalEntropy(data.s, UnitConverter.getUnitLabels(unitSystem).s);
         if (data.x !== undefined) props.x = data.x;
@@ -196,12 +198,18 @@ export const App: React.FC = () => {
         let secondProp: any = 'x';
         let secondVal = data.x ?? 1;
 
-        if (data.inputType.startsWith('1_') || data.inputType.startsWith('2_') || data.inputType.startsWith('3_') || data.inputType.startsWith('4_')) {
+        if (data.T !== undefined) {
           type = 'T';
-          value = data.T !== undefined ? UnitConverter.toInternalT(data.T, uLabels.T) : 25;
+          value = UnitConverter.toInternalT(data.T, uLabels.T);
           if (data.v !== undefined) {
             secondProp = 'v';
             secondVal = UnitConverter.toInternalV(data.v, uLabels.v, mm);
+          } else if (data.u !== undefined) {
+            secondProp = 'u';
+            secondVal = UnitConverter.toInternalEnergy(data.u, uLabels.u, mm);
+          } else if (data.h !== undefined) {
+            secondProp = 'h';
+            secondVal = UnitConverter.toInternalEnergy(data.h, uLabels.h, mm);
           } else if (data.s !== undefined) {
             secondProp = 's';
             secondVal = UnitConverter.toInternalEntropy(data.s, uLabels.s, mm);
@@ -218,6 +226,9 @@ export const App: React.FC = () => {
           if (data.v !== undefined) {
             secondProp = 'v';
             secondVal = UnitConverter.toInternalV(data.v, uLabels.v, mm);
+          } else if (data.u !== undefined) {
+            secondProp = 'u';
+            secondVal = UnitConverter.toInternalEnergy(data.u, uLabels.u, mm);
           } else if (data.h !== undefined) {
             secondProp = 'h';
             secondVal = UnitConverter.toInternalEnergy(data.h, uLabels.h, mm);

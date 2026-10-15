@@ -98,6 +98,9 @@ export class WaterEngine {
     } else if (P !== undefined && u !== undefined) {
       // Solve from (P, u)
       res = this.solvePu(P, u);
+    } else if (T_K !== undefined && u !== undefined) {
+      // Solve from (T, u)
+      res = this.solveTu(T_K, u);
     } else {
       throw new Error("Combinação de propriedades não suportada. Forneça pelo menos 2 propriedades independentes.");
     }
@@ -211,17 +214,90 @@ export class WaterEngine {
 
   private static solvePu(P: number, targetU: number): any {
     if (P < this.PC) {
-      const uf = if97.solvePx(P, 0).internalEnergy;
-      const ug = if97.solvePx(P, 1).internalEnergy;
+      const satLiq = if97.solvePx(P, 0);
+      const satVap = if97.solvePx(P, 1);
+      const uf = satLiq.internalEnergy;
+      const ug = satVap.internalEnergy;
       if (targetU >= uf && targetU <= ug) {
         const x = (targetU - uf) / (ug - uf);
-        return if97.solvePx(P, x);
+        return if97.solvePx(P, Math.max(0, Math.min(1, x)));
       }
-      // Approximate via h = u + P*v
-      const h_approx = targetU + P * 0.05 * 1000;
-      return if97.solvePH(P, h_approx);
+      if (targetU < uf) {
+        let Tlow = 273.15;
+        let Thigh = satLiq.temperature;
+        for (let i = 0; i < 35; i++) {
+          const Tmid = 0.5 * (Tlow + Thigh);
+          const umid = if97.solvePT(P, Tmid).internalEnergy;
+          if (umid < targetU) Tlow = Tmid;
+          else Thigh = Tmid;
+        }
+        return if97.solvePT(P, 0.5 * (Tlow + Thigh));
+      } else {
+        let Tlow = satVap.temperature;
+        let Thigh = 2273.15;
+        for (let i = 0; i < 35; i++) {
+          const Tmid = 0.5 * (Tlow + Thigh);
+          const umid = if97.solvePT(P, Tmid).internalEnergy;
+          if (umid < targetU) Tlow = Tmid;
+          else Thigh = Tmid;
+        }
+        return if97.solvePT(P, 0.5 * (Tlow + Thigh));
+      }
+    } else {
+      let Tlow = 273.15;
+      let Thigh = 2273.15;
+      for (let i = 0; i < 35; i++) {
+        const Tmid = 0.5 * (Tlow + Thigh);
+        const umid = if97.solvePT(P, Tmid).internalEnergy;
+        if (umid < targetU) Tlow = Tmid;
+        else Thigh = Tmid;
+      }
+      return if97.solvePT(P, 0.5 * (Tlow + Thigh));
     }
-    return if97.solvePT(P, 300);
+  }
+
+  private static solveTu(T_K: number, targetU: number): any {
+    if (T_K < this.TC) {
+      const satLiq = if97.solveTx(T_K, 0);
+      const satVap = if97.solveTx(T_K, 1);
+      const uf = satLiq.internalEnergy;
+      const ug = satVap.internalEnergy;
+      if (targetU >= uf && targetU <= ug) {
+        const x = (targetU - uf) / (ug - uf);
+        return if97.solveTx(T_K, Math.max(0, Math.min(1, x)));
+      }
+      if (targetU > ug) {
+        let Plow = 0.0001;
+        let Phigh = satVap.pressure;
+        for (let i = 0; i < 35; i++) {
+          const Pmid = 0.5 * (Plow + Phigh);
+          const umid = if97.solvePT(Pmid, T_K).internalEnergy;
+          if (umid > targetU) Plow = Pmid;
+          else Phigh = Pmid;
+        }
+        return if97.solvePT(0.5 * (Plow + Phigh), T_K);
+      } else {
+        let Plow = satLiq.pressure;
+        let Phigh = 100.0;
+        for (let i = 0; i < 35; i++) {
+          const Pmid = 0.5 * (Plow + Phigh);
+          const umid = if97.solvePT(Pmid, T_K).internalEnergy;
+          if (umid > targetU) Plow = Pmid;
+          else Phigh = Pmid;
+        }
+        return if97.solvePT(0.5 * (Plow + Phigh), T_K);
+      }
+    } else {
+      let Plow = 0.001;
+      let Phigh = 100.0;
+      for (let i = 0; i < 35; i++) {
+        const Pmid = 0.5 * (Plow + Phigh);
+        const umid = if97.solvePT(Pmid, T_K).internalEnergy;
+        if (umid > targetU) Plow = Pmid;
+        else Phigh = Pmid;
+      }
+      return if97.solvePT(0.5 * (Plow + Phigh), T_K);
+    }
   }
 
   private static bisectionT(P: number, targetV: number, Tlow: number, Thigh: number): any {

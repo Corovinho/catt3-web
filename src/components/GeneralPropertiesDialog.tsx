@@ -4,14 +4,17 @@ import { UnitConverter } from '../engine/units';
 import { Check, X, HelpCircle } from 'lucide-react';
 
 export type InputType =
-  | '1_TP' // 1. T & P
-  | '2_TV' // 2. T & V
-  | '3_TS' // 3. T & S
-  | '4_TX' // 4. T & X
-  | '5_PV' // 5. P & V
-  | '6_PH' // 6. P & H
-  | '7_PS' // 7. P & S
-  | '8_PX';// 8. P & X
+  | '1_TP'  // 1. T & P
+  | '2_TV'  // 2. T & V
+  | '3_TU'  // 3. T & U
+  | '4_TH'  // 4. T & H
+  | '5_TS'  // 5. T & S
+  | '6_TX'  // 6. T & X
+  | '7_PV'  // 7. P & V
+  | '8_PU'  // 8. P & U
+  | '9_PH'  // 9. P & H
+  | '10_PS' // 10. P & S
+  | '11_PX';// 11. P & X
 
 interface GeneralPropertiesDialogProps {
   isOpen: boolean;
@@ -24,6 +27,7 @@ interface GeneralPropertiesDialogProps {
     T?: number;
     P?: number;
     v?: number;
+    u?: number;
     h?: number;
     s?: number;
     x?: number;
@@ -46,6 +50,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   const [valT, setValT] = useState<string>('100');
   const [valP, setValP] = useState<string>('0.1'); // MPa default
   const [valV, setValV] = useState<string>('0.5');
+  const [valU, setValU] = useState<string>('2000');
   const [valH, setValH] = useState<string>('2675');
   const [valS, setValS] = useState<string>('7.35');
   const [valX, setValX] = useState<string>('1');
@@ -62,12 +67,13 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   const units = UnitConverter.getUnitLabels(unitSystem);
 
   // Determine which fields are enabled based on selected inputType
-  const isTEnabled = inputType === '1_TP' || inputType === '2_TV' || inputType === '3_TS' || inputType === '4_TX';
-  const isPEnabled = inputType === '1_TP' || inputType === '5_PV' || inputType === '6_PH' || inputType === '7_PS' || inputType === '8_PX';
-  const isVEnabled = inputType === '2_TV' || inputType === '5_PV';
-  const isHEnabled = inputType === '6_PH';
-  const isSEnabled = inputType === '3_TS' || inputType === '7_PS';
-  const isXEnabled = inputType === '4_TX' || inputType === '8_PX';
+  const isTEnabled = inputType === '1_TP' || inputType === '2_TV' || inputType === '3_TU' || inputType === '4_TH' || inputType === '5_TS' || inputType === '6_TX';
+  const isPEnabled = inputType === '1_TP' || inputType === '7_PV' || inputType === '8_PU' || inputType === '9_PH' || inputType === '10_PS' || inputType === '11_PX';
+  const isVEnabled = inputType === '2_TV' || inputType === '7_PV';
+  const isUEnabled = inputType === '3_TU' || inputType === '8_PU';
+  const isHEnabled = inputType === '4_TH' || inputType === '9_PH';
+  const isSEnabled = inputType === '5_TS' || inputType === '10_PS';
+  const isXEnabled = inputType === '6_TX' || inputType === '11_PX';
 
   const handleOK = () => {
     const payload: any = { inputType };
@@ -86,6 +92,11 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
       const num = parseFloat(valV);
       if (isNaN(num)) return alert('Insira um valor válido para Volume Específico');
       payload.v = num;
+    }
+    if (isUEnabled) {
+      const num = parseFloat(valU);
+      if (isNaN(num)) return alert('Insira um valor válido para Energia Interna Específica');
+      payload.u = num;
     }
     if (isHEnabled) {
       const num = parseFloat(valH);
@@ -130,12 +141,15 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {[
               { id: '1_TP', label: '1. T & P' },
               { id: '2_TV', label: '2. T & V' },
-              { id: '3_TS', label: '3. T & S' },
-              { id: '4_TX', label: '4. T & X' },
-              { id: '5_PV', label: '5. P & V' },
-              { id: '6_PH', label: '6. P & H' },
-              { id: '7_PS', label: '7. P & S' },
-              { id: '8_PX', label: '8. P & X' },
+              { id: '3_TU', label: '3. T & U' },
+              { id: '4_TH', label: '4. T & H' },
+              { id: '5_TS', label: '5. T & S' },
+              { id: '6_TX', label: '6. T & X' },
+              { id: '7_PV', label: '7. P & V' },
+              { id: '8_PU', label: '8. P & U' },
+              { id: '9_PH', label: '9. P & H' },
+              { id: '10_PS', label: '10. P & S' },
+              { id: '11_PX', label: '11. P & X' },
             ].map((opt) => (
               <label
                 key={opt.id}
@@ -213,6 +227,25 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.v}</span>
+            </div>
+
+            {/* Specific Internal Energy */}
+            <div className="flex items-center justify-between gap-2">
+              <span className={`w-32 text-[11px] font-mono ${isUEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
+                Energia Interna Específica
+              </span>
+              <input
+                type="number"
+                step="any"
+                disabled={!isUEnabled}
+                value={isUEnabled ? valU : ''}
+                onChange={(e) => setValU(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
+                className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
+                  isUEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                }`}
+              />
+              <span className="w-12 text-[11px] font-mono text-slate-600">{units.u}</span>
             </div>
 
             {/* Specific Enthalpy */}

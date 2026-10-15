@@ -54,6 +54,35 @@ try {
   assert(false, 'Saturação da água por P', e.message);
 }
 
+// 1.4 Testes das novas combinações solicitadas: P & H, P & U, T & U, T & H
+try {
+  // P & H
+  const wPH = WaterEngine.solveGeneral({ P_MPa: 1.0, h: 3051.6 });
+  assert(approxEq(wPH.T, 300, 1.0), 'Entrada [P & H]: P=1 MPa, h=3051.6 -> T ~ 300°C', `T = ${wPH.T}`);
+
+  // P & U
+  const wPU = WaterEngine.solveGeneral({ P_MPa: 1.0, u: 2793.7 });
+  assert(approxEq(wPU.T, 300, 1.0), 'Entrada [P & U]: P=1 MPa, u=2793.7 -> T ~ 300°C', `T = ${wPU.T}`);
+
+  // T & H
+  const wTH = WaterEngine.solveGeneral({ T: 300, h: 3051.6 });
+  assert(approxEq(wTH.P_MPa, 1.0, 1.0), 'Entrada [T & H]: T=300°C, h=3051.6 -> P ~ 1.0 MPa', `P = ${wTH.P_MPa}`);
+
+  // T & U
+  const wTU = WaterEngine.solveGeneral({ T: 300, u: 2793.7 });
+  assert(approxEq(wTU.P_MPa, 1.0, 1.0), 'Entrada [T & U]: T=300°C, u=2793.7 -> P ~ 1.0 MPa', `P = ${wTU.P_MPa}`);
+
+  // T & U em mistura saturada (100°C, u = 1462.5 -> x ~ 0.5)
+  const wTUMix = WaterEngine.solveGeneral({ T: 100, u: 1462.5 });
+  assert(approxEq(wTUMix.x ?? 0, 0.5, 2.0), 'Entrada [T & U] Mistura: T=100°C, u=1462.5 -> x ~ 0.5', `x = ${wTUMix.x}`);
+
+  // P & U em mistura saturada (0.1014 MPa, u = 1462.5 -> x ~ 0.5)
+  const wPUMix = WaterEngine.solveGeneral({ P_MPa: 0.1014, u: 1462.5 });
+  assert(approxEq(wPUMix.x ?? 0, 0.5, 2.0), 'Entrada [P & U] Mistura: P=0.1014 MPa, u=1462.5 -> x ~ 0.5', `x = ${wPUMix.x}`);
+} catch (e: any) {
+  assert(false, 'Novas combinações P&H, P&U, T&U, T&H', e.message);
+}
+
 // 2. TODOS OS REFRIGERANTES E CRIOGÊNICOS EM TODAS AS PROPRIEDADES SECUNDÁRIAS
 console.log('\n2. TESTANDO REFRIGERANTES E CRIOGÊNICOS COM SEGUNDA PROPRIEDADE:');
 const fluids = Object.keys(FLUID_CATALOG);
