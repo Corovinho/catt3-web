@@ -83,22 +83,83 @@ try {
   assert(false, 'Novas combinações P&H, P&U, T&U, T&H', e.message);
 }
 
-// 2. TODOS OS REFRIGERANTES E CRIOGÊNICOS EM TODAS AS PROPRIEDADES SECUNDÁRIAS
-console.log('\n2. TESTANDO REFRIGERANTES E CRIOGÊNICOS COM SEGUNDA PROPRIEDADE:');
+// 2. TODOS OS REFRIGERANTES E CRIOGÊNICOS EM TODAS AS 11 COMBINAÇÕES DE PROPRIEDADES
+console.log('\n2. TESTANDO REFRIGERANTES E CRIOGÊNICOS NAS 11 ENTRADAS (MISTURA + SUPER-AQUECIDO + LÍQUIDO COMPRIMIDO):');
 const fluids = Object.keys(FLUID_CATALOG);
 let fluidErrors = 0;
 for (const fid of fluids) {
   try {
-    const s1 = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: 20, secondProp: 'x', secondVal: 0.5 });
-    if (!s1 || isNaN(s1.h) || isNaN(s1.v)) fluidErrors++;
+    const f = FLUID_CATALOG[fid];
+    const midIdx = Math.floor(f.table.length / 2);
+    const row = f.table[midIdx];
+    const T_mid = row.T;
+    const P_mid = row.P; // bar
 
-    const s2 = RefrigerantEngine.solve(fid, { mode: 'SATURATION', type: 'P', value: 5, secondProp: 'x', secondVal: 1 });
-    if (!s2 || isNaN(s2.h) || isNaN(s2.s)) fluidErrors++;
+    // 2.1 Mistura Saturada (x = 0.5) - Round-trip em todas as entradas: T&X, P&X, T&V, P&V, T&U, P&U, T&H, P&H, T&S, P&S
+    const stMix = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'x', secondVal: 0.5 });
+    const mixPX = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'x', secondVal: 0.5 });
+    const mixTV = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'v', secondVal: stMix.v });
+    const mixPV = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'v', secondVal: stMix.v });
+    const mixTU = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'u', secondVal: stMix.u });
+    const mixPU = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'u', secondVal: stMix.u });
+    const mixTH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'h', secondVal: stMix.h });
+    const mixPH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'h', secondVal: stMix.h });
+    const mixTS = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 's', secondVal: stMix.s });
+    const mixPS = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 's', secondVal: stMix.s });
+
+    for (const st of [stMix, mixPX, mixTV, mixPV, mixTU, mixPU, mixTH, mixPH, mixTS, mixPS]) {
+      if (!st || isNaN(st.h) || isNaN(st.u) || isNaN(st.v) || isNaN(st.s) || !approxEq(st.x ?? -1, 0.5, 2.0)) {
+        fluidErrors++;
+        console.error(`Erro mistura em ${fid}:`, st);
+      }
+    }
+
+    // 2.2 Vapor Superaquecido (T = T_mid + 35°C, P = P_mid) - Round-trip em T&P, P&H, P&U, P&S, P&V, T&H, T&U, T&S, T&V
+    const T_sup = T_mid + 35;
+    const stSup = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 'P', secondVal: P_mid });
+    const supPH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'h', secondVal: stSup.h });
+    const supPU = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'u', secondVal: stSup.u });
+    const supPS = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 's', secondVal: stSup.s });
+    const supPV = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'v', secondVal: stSup.v });
+    const supTH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 'h', secondVal: stSup.h });
+    const supTU = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 'u', secondVal: stSup.u });
+    const supTS = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 's', secondVal: stSup.s });
+    const supTV = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 'v', secondVal: stSup.v });
+
+    if (
+      !approxEq(supPH.T, T_sup, 1.0) ||
+      !approxEq(supPU.T, T_sup, 1.0) ||
+      !approxEq(supPS.T, T_sup, 1.0) ||
+      !approxEq(supPV.T, T_sup, 1.0) ||
+      !approxEq(supTH.P, P_mid, 2.0) ||
+      !approxEq(supTU.P, P_mid, 2.0) ||
+      !approxEq(supTS.P, P_mid, 2.0) ||
+      !approxEq(supTV.P, P_mid, 2.0)
+    ) {
+      fluidErrors++;
+      console.error(`Erro superaquecido round-trip em ${fid}`);
+    }
+
+    // 2.3 Líquido Comprimido (T = Math.max(-271.5, T_mid - 15), P = P_mid * 1.5) - Round-trip em P&H, P&U
+    const T_sub = Math.max(-271.5, T_mid - 15);
+    const P_sub = P_mid * 1.5;
+    const stSub = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sub, secondProp: 'P', secondVal: P_sub });
+    const subPH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_sub, secondProp: 'h', secondVal: stSub.h });
+    const subPU = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_sub, secondProp: 'u', secondVal: stSub.u });
+    if (Math.abs(subPH.T - T_sub) > 1.0 || Math.abs(subPU.T - T_sub) > 1.0) {
+      fluidErrors++;
+      console.error(`Erro líquido comprimido round-trip em ${fid}: T_esp=${T_sub}, subPH.T=${subPH.T}, subPU.T=${subPU.T}`);
+    }
   } catch (err) {
     fluidErrors++;
+    console.error(`Exceção em ${fid}:`, err);
   }
 }
-assert(fluidErrors === 0, `Todos os 31 fluidos (20 refrigerantes + 11 criogênicos) resolvidos sem falhas`, `Erros: ${fluidErrors}`);
+assert(
+  fluidErrors === 0,
+  `Todos os 31 fluidos (20 refrigerantes + 11 criogênicos) validados nas 11 combinações (T&P, P&H, P&U, T&U, T&H, etc.) em mistura, vapor superaquecido e líquido comprimido`,
+  `Erros: ${fluidErrors}`
+);
 
 // 3. PSICROMETRIA: TODAS AS 4 ENTRADAS (RH, Twb, Tdp, w)
 console.log('\n3. TESTANDO PSICROMETRIA COM TODOS OS MODOS DE ENTRADA:');
@@ -183,6 +244,82 @@ for (const sys of unitSystems) {
   assert(approxEq(vInternal, vBack, 0.01), `Sistema [${sys}]: Conversão de Volume Específico bidirecional perfeita`, `In: ${vInternal}, Back: ${vBack}`);
 }
 
+// 7. AUDITORIA COMPLETA DOS 9 PROCESSOS TERMODINÂMICOS EM TODAS AS CATEGORIAS
+console.log('\n7. TESTANDO OS 9 PROCESSOS TERMODINÂMICOS EM ÁGUA, REFRIGERANTES, CRIOGÊNICOS, GASES IDEAIS E AR:');
+const processTypes = [
+  'ISOTHERMAL',
+  'ISOBARIC',
+  'ISOCHORIC',
+  'ISENTROPIC',
+  'ISENERGIC',
+  'ISENTHALPIC',
+  'PINVERSE_V',
+  'POLYTROPIC',
+  'LINEAR_PV',
+] as const;
+
+const initialStates = [
+  WaterEngine.solveGeneral({ T: 300, P_MPa: 1.0 }),
+  RefrigerantEngine.solve('r134a', { mode: 'GENERAL', type: 'T', value: 60, secondProp: 'P', secondVal: 6.0 }),
+  RefrigerantEngine.solve('n2', { mode: 'GENERAL', type: 'T', value: -140, secondProp: 'P', secondVal: 5.0 }),
+  IdealGasEngine.solve('co2', 200, 4.0),
+  AirEngine.solve('T', 473.15, 4.0),
+];
+
+for (const st1 of initialStates) {
+  let catProcErrors = 0;
+  for (const pType of processTypes) {
+    try {
+      const targetProp = pType === 'ISOBARIC' ? 'T' : 'P';
+      const targetValue = pType === 'ISOBARIC' ? st1.T + 50 : st1.P_MPa * 0.5;
+      const curve = ProcessPlotter.calculateProcess({
+        state1: st1,
+        type: pType,
+        targetProperty: targetProp,
+        targetValue,
+        polytropicN: 1.3,
+        targetV2Linear: st1.v * 1.8,
+      });
+
+      if (!curve || curve.path.length !== 21 || isNaN(curve.work) || isNaN(curve.heat) || isNaN(curve.state2.u) || isNaN(curve.state2.h)) {
+        catProcErrors++;
+        console.error(`Falha na curva de [${pType}] para ${st1.substanceName}`);
+      }
+
+      if (pType === 'ISENTHALPIC') {
+        if (curve.work !== 0 || curve.heat !== 0) {
+          catProcErrors++;
+          console.error(`Erro no estrangulamento [ISENTHALPIC] para ${st1.substanceName}`);
+        }
+      } else {
+        // Verificar Primeira Lei da Termodinâmica para sistemas fechados: q - w = u2 - u1
+        const deltaU = curve.state2.u - curve.state1.u;
+        const qMinusW = curve.heat - curve.work;
+        if (Math.abs(qMinusW - deltaU) > 0.5) {
+          catProcErrors++;
+          console.error(`Violação da 1ª Lei em [${pType}] para ${st1.substanceName}: q-w=${qMinusW}, du=${deltaU}`);
+        }
+      }
+
+      // Verificar invariantes do processo
+      if (pType === 'ISOTHERMAL' && Math.abs(curve.state2.T - st1.T) > 0.5) catProcErrors++;
+      if (pType === 'ISOBARIC' && Math.abs(curve.state2.P_MPa - st1.P_MPa) > 0.01) catProcErrors++;
+      if (pType === 'ISOCHORIC' && !approxEq(curve.state2.v, st1.v, 2.0)) catProcErrors++;
+      if (pType === 'ISENTROPIC' && !approxEq(curve.state2.s, st1.s, 2.0)) catProcErrors++;
+      if (pType === 'ISENERGIC' && !approxEq(curve.state2.u, st1.u, 2.0)) catProcErrors++;
+      if (pType === 'ISENTHALPIC' && !approxEq(curve.state2.h, st1.h, 2.0)) catProcErrors++;
+    } catch (e: any) {
+      catProcErrors++;
+      console.error(`Exceção no processo [${pType}] para ${st1.substanceName}:`, e.message);
+    }
+  }
+  assert(
+    catProcErrors === 0,
+    `Todos os 9 processos termodinâmicos validados (invariantes + 1ª Lei q - w = Δu) para [${st1.category} - ${st1.substanceName}]`,
+    `Erros: ${catProcErrors}`
+  );
+}
+
 console.log('\n================================================================');
 console.log(`TOTAL DE ASSERTIVAS: ${totalTests}`);
 console.log(`PASSOU: ${passedTests}`);
@@ -193,3 +330,4 @@ if (failedTests === 0) {
 } else {
   process.exit(1);
 }
+

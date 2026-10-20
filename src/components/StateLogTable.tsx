@@ -92,10 +92,10 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
       rows = states.map((s, idx) => {
         const dispT = UnitConverter.fromInternalT(s.T, units.T);
         const dispP = UnitConverter.fromInternalP(s.P_MPa, units.P);
-        const dispV = UnitConverter.fromInternalV(s.v, units.v);
-        const dispU = UnitConverter.fromInternalEnergy(s.u, units.u);
-        const dispH = UnitConverter.fromInternalEnergy(s.h, units.h);
-        const dispS = UnitConverter.fromInternalEntropy(s.s, units.s);
+        const dispV = UnitConverter.fromInternalV(s.v, units.v, s.molarMass);
+        const dispU = UnitConverter.fromInternalEnergy(s.u, units.u, s.molarMass);
+        const dispH = UnitConverter.fromInternalEnergy(s.h, units.h, s.molarMass);
+        const dispS = UnitConverter.fromInternalEntropy(s.s, units.s, s.molarMass);
         const dispX = s.x !== null && s.x !== undefined ? s.x : '';
         return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
       }).join('\n');
@@ -118,10 +118,10 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
     states.forEach((s, idx) => {
       const dispT = formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2);
       const dispP = formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4);
-      const dispV = formatV(UnitConverter.fromInternalV(s.v, units.v));
-      const dispU = formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 2, 2);
-      const dispH = formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2, 2);
-      const dispS = formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 4);
+      const dispV = formatV(UnitConverter.fromInternalV(s.v, units.v, s.molarMass));
+      const dispU = formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u, s.molarMass), 2, 2);
+      const dispH = formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h, s.molarMass), 2, 2);
+      const dispS = formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s, s.molarMass), 3, 4);
       const dispX = s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : '';
       md += `| ${idx + 1} | ${s.substanceName} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
     });
@@ -475,10 +475,10 @@ export const StateLogTable: React.FC<StateLogTableProps> = ({
                     <td className="py-1 px-2 text-left border-r border-slate-200 font-bold truncate max-w-[150px]">{s.substanceName}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalT(s.T, units.T), 2, 2)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200 font-bold">{formatNumber(UnitConverter.fromInternalP(s.P_MPa, units.P), 2, 4)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(UnitConverter.fromInternalV(s.v, units.v))}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u), 2, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h), 2, 2)}</td>
-                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s), 3, 4)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatV(UnitConverter.fromInternalV(s.v, units.v, s.molarMass))}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.u, units.u, s.molarMass), 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEnergy(s.h, units.h, s.molarMass), 2, 2)}</td>
+                    <td className="py-1 px-2 text-right border-r border-slate-200">{formatNumber(UnitConverter.fromInternalEntropy(s.s, units.s, s.molarMass), 3, 4)}</td>
                     <td className="py-1 px-2 text-right border-r border-slate-200">{s.x !== null && s.x !== undefined ? formatNumber(s.x, 4, 4) : '-'}</td>
                     <td className="py-1 px-2 text-left border-r border-slate-200 text-[11px] truncate">{UnitConverter.formatPhasePtBr(s.phase)}</td>
                     <td className="py-1 px-1 text-center">

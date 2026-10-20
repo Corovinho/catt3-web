@@ -22,6 +22,10 @@ interface GeneralPropertiesDialogProps {
   unitSystem: UnitSystem;
   initialT?: number;
   initialP?: number;
+  initialV?: number;
+  initialU?: number;
+  initialH?: number;
+  initialS?: number;
   onCalculate: (data: {
     inputType: InputType;
     T?: number;
@@ -41,6 +45,10 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   unitSystem,
   initialT,
   initialP,
+  initialV,
+  initialU,
+  initialH,
+  initialS,
   onCalculate,
   substanceName,
 }) => {
@@ -59,8 +67,12 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
     if (isOpen) {
       if (initialT !== undefined && !isNaN(initialT)) setValT(Number(initialT.toFixed(2)).toString());
       if (initialP !== undefined && !isNaN(initialP)) setValP(Number(initialP.toFixed(4)).toString());
+      if (initialV !== undefined && !isNaN(initialV)) setValV(Number(initialV.toFixed(5)).toString());
+      if (initialU !== undefined && !isNaN(initialU)) setValU(Number(initialU.toFixed(2)).toString());
+      if (initialH !== undefined && !isNaN(initialH)) setValH(Number(initialH.toFixed(2)).toString());
+      if (initialS !== undefined && !isNaN(initialS)) setValS(Number(initialS.toFixed(4)).toString());
     }
-  }, [isOpen, initialT, initialP]);
+  }, [isOpen, initialT, initialP, initialV, initialU, initialH, initialS]);
 
   if (!isOpen) return null;
 
@@ -328,7 +340,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
           </button>
 
           <button
-            onClick={() => alert('Selecione o Tipo de Entrada na esquerda (1 a 8). Os 2 campos correspondentes serão habilitados na direita para você inserir os valores.')}
+            onClick={() => alert('Selecione o Tipo de Entrada na esquerda (1 a 11). Os 2 campos correspondentes serão habilitados na direita para você inserir os valores.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

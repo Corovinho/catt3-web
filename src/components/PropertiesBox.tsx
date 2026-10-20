@@ -91,7 +91,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
           <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
             <span className="w-40 font-bold text-slate-900">Volume Específico (v)</span>
             <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-              {state ? formatV(UnitConverter.fromInternalV(state.v, units.v)) : '-'}
+              {state ? formatV(UnitConverter.fromInternalV(state.v, units.v, state.molarMass)) : '-'}
             </span>
             <span className="w-20 text-right text-slate-500 text-[11px]">{units.v}</span>
           </div>
@@ -99,7 +99,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
           <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
             <span className="w-40 font-bold text-slate-900">Energia Interna (u)</span>
             <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-              {state ? formatNumber(UnitConverter.fromInternalEnergy(state.u, units.u), 2, 2) : '-'}
+              {state ? formatNumber(UnitConverter.fromInternalEnergy(state.u, units.u, state.molarMass), 2, 2) : '-'}
             </span>
             <span className="w-20 text-right text-slate-500 text-[11px]">{units.u}</span>
           </div>
@@ -107,7 +107,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
           <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
             <span className="w-40 font-bold text-slate-900">Entalpia Específica (h)</span>
             <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-              {state ? formatNumber(UnitConverter.fromInternalEnergy(state.h, units.h), 2, 2) : '-'}
+              {state ? formatNumber(UnitConverter.fromInternalEnergy(state.h, units.h, state.molarMass), 2, 2) : '-'}
             </span>
             <span className="w-20 text-right text-slate-500 text-[11px]">{units.h}</span>
           </div>
@@ -115,7 +115,7 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
           <div className="flex items-center justify-between py-0.5 border-b border-slate-100">
             <span className="w-40 font-bold text-slate-900">Entropia Específica (s)</span>
             <span className="flex-1 text-right font-bold text-slate-900 text-sm">
-              {state ? formatNumber(UnitConverter.fromInternalEntropy(state.s, units.s), 3, 4) : '-'}
+              {state ? formatNumber(UnitConverter.fromInternalEntropy(state.s, units.s, state.molarMass), 3, 4) : '-'}
             </span>
             <span className="w-20 text-right text-slate-500 text-[11px]">{units.s}</span>
           </div>
@@ -157,12 +157,18 @@ export const PropertiesBox: React.FC<PropertiesBoxProps> = ({
                 Tabela de Saturação (Líquido f vs Vapor g):
               </span>
               <div className="grid grid-cols-2 gap-x-4">
-                <span>vf = {formatV(state.vf)} {units.v}</span>
-                <span>vg = {formatV(state.vg)} {units.v}</span>
-                <span>hf = {formatNumber(state.hf, 2)} {units.h}</span>
-                <span>hg = {formatNumber(state.hg, 2)} {units.h}</span>
-                <span>sf = {formatNumber(state.sf, 4)} {units.s}</span>
-                <span>sg = {formatNumber(state.sg, 4)} {units.s}</span>
+                <span>vf = {formatV(UnitConverter.fromInternalV(state.vf, units.v, state.molarMass))} {units.v}</span>
+                <span>vg = {formatV(UnitConverter.fromInternalV(state.vg ?? 0, units.v, state.molarMass))} {units.v}</span>
+                {state.uf !== undefined && (
+                  <>
+                    <span>uf = {formatNumber(UnitConverter.fromInternalEnergy(state.uf, units.u, state.molarMass), 2)} {units.u}</span>
+                    <span>ug = {formatNumber(UnitConverter.fromInternalEnergy(state.ug ?? 0, units.u, state.molarMass), 2)} {units.u}</span>
+                  </>
+                )}
+                <span>hf = {formatNumber(UnitConverter.fromInternalEnergy(state.hf ?? 0, units.h, state.molarMass), 2)} {units.h}</span>
+                <span>hg = {formatNumber(UnitConverter.fromInternalEnergy(state.hg ?? 0, units.h, state.molarMass), 2)} {units.h}</span>
+                <span>sf = {formatNumber(UnitConverter.fromInternalEntropy(state.sf ?? 0, units.s, state.molarMass), 4)} {units.s}</span>
+                <span>sg = {formatNumber(UnitConverter.fromInternalEntropy(state.sg ?? 0, units.s, state.molarMass), 4)} {units.s}</span>
               </div>
             </div>
           )}

@@ -160,7 +160,9 @@ export class IdealGasEngine {
       h,
       s,
       phase: 'Gas',
-      s0
+      s0,
+      molarMass: gas.M,
+      gasConstant: R_gas
     };
   }
 }

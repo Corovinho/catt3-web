@@ -89,7 +89,10 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
       }
 
       const nVal = parseFloat(polytropicN) || 1.3;
-      const v2Lin = parseFloat(linearV2) || (state1.v * 1.5);
+      const rawV2Lin = parseFloat(linearV2);
+      const v2Lin = !isNaN(rawV2Lin)
+        ? UnitConverter.toInternalV(rawV2Lin, units.v, state1.molarMass)
+        : (state1.v * 1.5);
 
       const curve = ProcessPlotter.calculateProcess({
         state1,
@@ -224,19 +227,19 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
                 </div>
                 <div className="bg-slate-50 p-1.5 border border-slate-300">
                   <span className="text-[10px] text-slate-500 block">Volume Esp. (v₁)</span>
-                  <span className="font-bold text-black">{UnitConverter.fromInternalV(state1.v, units.v).toFixed(5)} {units.v}</span>
+                  <span className="font-bold text-black">{UnitConverter.fromInternalV(state1.v, units.v, state1.molarMass).toFixed(5)} {units.v}</span>
                 </div>
                 <div className="bg-slate-50 p-1.5 border border-slate-300">
                   <span className="text-[10px] text-slate-500 block">Entalpia (h₁)</span>
-                  <span className="font-bold text-black">{UnitConverter.fromInternalEnergy(state1.h, units.h).toFixed(2)} {units.h}</span>
+                  <span className="font-bold text-black">{UnitConverter.fromInternalEnergy(state1.h, units.h, state1.molarMass).toFixed(2)} {units.h}</span>
                 </div>
                 <div className="bg-slate-50 p-1.5 border border-slate-300">
                   <span className="text-[10px] text-slate-500 block">Entropia (s₁)</span>
-                  <span className="font-bold text-black">{UnitConverter.fromInternalEntropy(state1.s, units.s).toFixed(4)} {units.s}</span>
+                  <span className="font-bold text-black">{UnitConverter.fromInternalEntropy(state1.s, units.s, state1.molarMass).toFixed(4)} {units.s}</span>
                 </div>
                 <div className="bg-slate-50 p-1.5 border border-slate-300">
                   <span className="text-[10px] text-slate-500 block">Energia Int. (u₁)</span>
-                  <span className="font-bold text-black">{UnitConverter.fromInternalEnergy(state1.u, units.u).toFixed(2)} {units.u}</span>
+                  <span className="font-bold text-black">{UnitConverter.fromInternalEnergy(state1.u, units.u, state1.molarMass).toFixed(2)} {units.u}</span>
                 </div>
               </div>
             </div>
@@ -311,21 +314,27 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
                   <span>{calculatedCurve.label}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-slate-900">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-900">
                   <div>T₂ = <strong>{UnitConverter.fromInternalT(calculatedCurve.state2.T, units.T).toFixed(2)} {units.T}</strong></div>
                   <div>P₂ = <strong>{UnitConverter.fromInternalP(calculatedCurve.state2.P_MPa, units.P).toFixed(4)} {units.P}</strong></div>
-                  <div>v₂ = <strong>{UnitConverter.fromInternalV(calculatedCurve.state2.v, units.v).toFixed(5)} {units.v}</strong></div>
-                  <div>s₂ = <strong>{UnitConverter.fromInternalEntropy(calculatedCurve.state2.s, units.s).toFixed(4)} {units.s}</strong></div>
+                  <div>v₂ = <strong>{UnitConverter.fromInternalV(calculatedCurve.state2.v, units.v, state1.molarMass).toFixed(5)} {units.v}</strong></div>
+                  <div>u₂ = <strong>{UnitConverter.fromInternalEnergy(calculatedCurve.state2.u, units.u, state1.molarMass).toFixed(2)} {units.u}</strong></div>
+                  <div>h₂ = <strong>{UnitConverter.fromInternalEnergy(calculatedCurve.state2.h, units.h, state1.molarMass).toFixed(2)} {units.h}</strong></div>
+                  <div>s₂ = <strong>{UnitConverter.fromInternalEntropy(calculatedCurve.state2.s, units.s, state1.molarMass).toFixed(4)} {units.s}</strong></div>
                 </div>
 
                 <div className="border-t border-emerald-200 pt-2 grid grid-cols-2 gap-2">
                   <div className="bg-white p-2 border border-slate-300">
                     <span className="text-[10px] text-slate-500 uppercase block font-bold">Trabalho (w):</span>
-                    <span className="text-black font-bold text-sm">{calculatedCurve.work.toFixed(2)} kJ/kg</span>
+                    <span className="text-black font-bold text-sm">
+                      {UnitConverter.fromInternalEnergy(calculatedCurve.work, units.h, state1.molarMass).toFixed(2)} {units.h}
+                    </span>
                   </div>
                   <div className="bg-white p-2 border border-slate-300">
                     <span className="text-[10px] text-slate-500 uppercase block font-bold">Calor (q):</span>
-                    <span className="text-black font-bold text-sm">{calculatedCurve.heat.toFixed(2)} kJ/kg</span>
+                    <span className="text-black font-bold text-sm">
+                      {UnitConverter.fromInternalEnergy(calculatedCurve.heat, units.h, state1.molarMass).toFixed(2)} {units.h}
+                    </span>
                   </div>
                 </div>
               </div>

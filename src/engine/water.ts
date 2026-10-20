@@ -369,6 +369,7 @@ export class WaterEngine {
       s: res.entropy,
       x,
       phase,
+      molarMass: 18.015,
       vf, vg, uf, ug, hf, hg, sf, sg
     };
   }

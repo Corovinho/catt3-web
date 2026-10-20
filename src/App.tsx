@@ -177,19 +177,19 @@ export const App: React.FC = () => {
   }) => {
     try {
       let st: ThermodynamicState;
+      const uLabels = UnitConverter.getUnitLabels(unitSystem);
       if (category === 'WATER') {
         const props: any = {};
-        if (data.T !== undefined) props.T = UnitConverter.toInternalT(data.T, UnitConverter.getUnitLabels(unitSystem).T);
-        if (data.P !== undefined) props.P_MPa = UnitConverter.toInternalP(data.P, UnitConverter.getUnitLabels(unitSystem).P);
-        if (data.v !== undefined) props.v = UnitConverter.toInternalV(data.v, UnitConverter.getUnitLabels(unitSystem).v);
-        if (data.u !== undefined) props.u = UnitConverter.toInternalEnergy(data.u, UnitConverter.getUnitLabels(unitSystem).u);
-        if (data.h !== undefined) props.h = UnitConverter.toInternalEnergy(data.h, UnitConverter.getUnitLabels(unitSystem).h);
-        if (data.s !== undefined) props.s = UnitConverter.toInternalEntropy(data.s, UnitConverter.getUnitLabels(unitSystem).s);
+        if (data.T !== undefined) props.T = UnitConverter.toInternalT(data.T, uLabels.T);
+        if (data.P !== undefined) props.P_MPa = UnitConverter.toInternalP(data.P, uLabels.P);
+        if (data.v !== undefined) props.v = UnitConverter.toInternalV(data.v, uLabels.v, 18.015);
+        if (data.u !== undefined) props.u = UnitConverter.toInternalEnergy(data.u, uLabels.u, 18.015);
+        if (data.h !== undefined) props.h = UnitConverter.toInternalEnergy(data.h, uLabels.h, 18.015);
+        if (data.s !== undefined) props.s = UnitConverter.toInternalEntropy(data.s, uLabels.s, 18.015);
         if (data.x !== undefined) props.x = data.x;
         st = WaterEngine.solveGeneral(props);
       } else {
         // Refrigerants / Cryogenics
-        const uLabels = UnitConverter.getUnitLabels(unitSystem);
         const fluid = RefrigerantEngine.getFluid(substanceId);
         const mm = fluid?.molarMass;
 
@@ -261,7 +261,7 @@ export const App: React.FC = () => {
   const handleCalculateFluidSat = (data: {
     primaryType: 'T' | 'P';
     primaryValue: number;
-    mixtureType: 'x' | 'sat_liq' | 'sat_vap' | 'h' | 's' | 'v';
+    mixtureType: 'x' | 'sat_liq' | 'sat_vap' | 'u' | 'h' | 's' | 'v';
     mixtureValue?: number;
   }) => {
     try {
@@ -284,6 +284,9 @@ export const App: React.FC = () => {
         } else if (data.mixtureType === 'x') {
           secondProp = 'x';
           secondVal = data.mixtureValue ?? 0.5;
+        } else if (data.mixtureType === 'u') {
+          secondProp = 'u';
+          secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 1000, units.u, 18.015);
         } else if (data.mixtureType === 'h') {
           secondProp = 'h';
           secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 1000, units.h, 18.015);
@@ -321,6 +324,9 @@ export const App: React.FC = () => {
         } else if (data.mixtureType === 'x') {
           secondProp = 'x';
           secondVal = data.mixtureValue ?? 0.5;
+        } else if (data.mixtureType === 'u') {
+          secondProp = 'u';
+          secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 180, units.u, mm);
         } else if (data.mixtureType === 'h') {
           secondProp = 'h';
           secondVal = UnitConverter.toInternalEnergy(data.mixtureValue ?? 200, units.h, mm);
@@ -444,12 +450,13 @@ export const App: React.FC = () => {
     const curUnits = UnitConverter.getUnitLabels(unitSystem);
     const header = `#;Substância;Temperatura (${curUnits.T});Pressão (${curUnits.P});Volume Específico (${curUnits.v});Energia Interna (${curUnits.u});Entalpia (${curUnits.h});Entropia (${curUnits.s});Título (x);Fase\n`;
     const rows = statesLog.map((s, idx) => {
+      const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
       const dispT = UnitConverter.fromInternalT(s.T, curUnits.T);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P);
-      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v);
-      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u);
-      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h);
-      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s);
+      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v, mm);
+      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u, mm);
+      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h, mm);
+      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s, mm);
       const dispX = s.x !== null && s.x !== undefined ? s.x : '';
       return `${idx + 1};${s.substanceName};${dispT};${dispP};${dispV};${dispU};${dispH};${dispS};${dispX};${UnitConverter.formatPhasePtBr(s.phase)}`;
     }).join('\n');
@@ -473,12 +480,13 @@ export const App: React.FC = () => {
     let md = `| # | Substância | Temperatura [${curUnits.T}] | Pressão [${curUnits.P}] | Volume [${curUnits.v}] | Energia [${curUnits.u}] | Entalpia [${curUnits.h}] | Entropia [${curUnits.s}] | Título | Fase |\n`;
     md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
     statesLog.forEach((s, idx) => {
+      const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
       const dispT = UnitConverter.fromInternalT(s.T, curUnits.T).toFixed(2);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P).toFixed(4);
-      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v).toFixed(5);
-      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u).toFixed(2);
-      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h).toFixed(2);
-      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s).toFixed(4);
+      const dispV = UnitConverter.fromInternalV(s.v, curUnits.v, mm).toFixed(5);
+      const dispU = UnitConverter.fromInternalEnergy(s.u, curUnits.u, mm).toFixed(2);
+      const dispH = UnitConverter.fromInternalEnergy(s.h, curUnits.h, mm).toFixed(2);
+      const dispS = UnitConverter.fromInternalEntropy(s.s, curUnits.s, mm).toFixed(4);
       const dispX = s.x !== null && s.x !== undefined ? s.x.toFixed(4) : '';
       md += `| ${idx + 1} | ${s.substanceName} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
     });
@@ -501,10 +509,11 @@ export const App: React.FC = () => {
   };
 
   const units = UnitConverter.getUnitLabels(unitSystem);
+  const curMM = currentState?.molarMass ?? (FLUID_CATALOG[substanceId]?.molarMass ?? 18.015);
 
   const dispCurT = currentState ? UnitConverter.fromInternalT(currentState.T, units.T).toFixed(2) : '';
   const dispCurP = currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P).toFixed(4) : '';
-  const dispCurS = currentState ? UnitConverter.fromInternalEntropy(currentState.s, units.s).toFixed(4) : '';
+  const dispCurS = currentState ? UnitConverter.fromInternalEntropy(currentState.s, units.s, curMM).toFixed(4) : '';
 
   const statusText = currentState
     ? `Valores Atuais: T = ${dispCurT} ${units.T}; P = ${dispCurP} ${units.P}; s = ${dispCurS} ${units.s}`
@@ -655,6 +664,10 @@ export const App: React.FC = () => {
         substanceName={getSubstanceTitle()}
         initialT={currentState ? UnitConverter.fromInternalT(currentState.T, units.T) : 25}
         initialP={currentState ? UnitConverter.fromInternalP(currentState.P_MPa, units.P) : UnitConverter.fromInternalP(0.101325, units.P)}
+        initialV={currentState ? UnitConverter.fromInternalV(currentState.v, units.v, curMM) : undefined}
+        initialU={currentState ? UnitConverter.fromInternalEnergy(currentState.u, units.u, curMM) : undefined}
+        initialH={currentState ? UnitConverter.fromInternalEnergy(currentState.h, units.h, curMM) : undefined}
+        initialS={currentState ? UnitConverter.fromInternalEntropy(currentState.s, units.s, curMM) : undefined}
         onCalculate={handleCalculateFluidGeneral}
       />
 

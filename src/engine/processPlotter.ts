@@ -1,7 +1,7 @@
 import { ProcessType, ProcessPoint, ProcessCurve, ThermodynamicState } from '../types/thermo';
 import { WaterEngine } from './water';
 import { RefrigerantEngine, FLUID_CATALOG } from './refrigerants';
-import { IdealGasEngine } from './idealGases';
+import { IdealGasEngine, GAS_CATALOG } from './idealGases';
 import { AirEngine } from './air';
 
 export interface ProcessCalculationParams {
@@ -27,24 +27,72 @@ export class ProcessPlotter {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'T', value: inputs.T, secondProp: 'P', secondVal: pBar });
       } else if (pBar !== undefined && inputs.h !== undefined) {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'P', value: pBar, secondProp: 'h', secondVal: inputs.h });
+      } else if (pBar !== undefined && inputs.u !== undefined) {
+        return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'P', value: pBar, secondProp: 'u', secondVal: inputs.u });
       } else if (pBar !== undefined && inputs.s !== undefined) {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'P', value: pBar, secondProp: 's', secondVal: inputs.s });
       } else if (pBar !== undefined && inputs.v !== undefined) {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'P', value: pBar, secondProp: 'v', secondVal: inputs.v });
       } else if (inputs.T !== undefined && inputs.v !== undefined) {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'T', value: inputs.T, secondProp: 'v', secondVal: inputs.v });
+      } else if (inputs.T !== undefined && inputs.u !== undefined) {
+        return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'T', value: inputs.T, secondProp: 'u', secondVal: inputs.u });
+      } else if (inputs.T !== undefined && inputs.h !== undefined) {
+        return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'T', value: inputs.T, secondProp: 'h', secondVal: inputs.h });
       } else if (inputs.T !== undefined && inputs.s !== undefined) {
         return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'T', value: inputs.T, secondProp: 's', secondVal: inputs.s });
       }
       return RefrigerantEngine.solve(substanceId, { mode: 'GENERAL', type: 'P', value: pBar || 1, secondProp: 'x', secondVal: 1 });
     } else if (cat === 'IDEAL_GASES') {
+      const gas = GAS_CATALOG[substanceId] || GAS_CATALOG['co2'];
+      const R = IdealGasEngine.R_UNIVERSAL / gas.M; // kJ/(kg·K)
       const pBar = inputs.P_MPa !== undefined ? inputs.P_MPa * 10 : 1.01325;
-      const tC = inputs.T !== undefined ? inputs.T : 25;
-      return IdealGasEngine.solve(substanceId, tC, pBar);
+
+      if (inputs.T !== undefined && inputs.P_MPa !== undefined) {
+        return IdealGasEngine.solve(substanceId, inputs.T, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.v !== undefined) {
+        const T_K = (inputs.P_MPa * 1000 * inputs.v) / R;
+        return IdealGasEngine.solve(substanceId, T_K - 273.15, pBar);
+      } else if (inputs.T !== undefined && inputs.v !== undefined) {
+        const T_K = inputs.T + 273.15;
+        const calcP_bar = (R * T_K) / (inputs.v * 100);
+        return IdealGasEngine.solve(substanceId, inputs.T, calcP_bar);
+      } else if (inputs.P_MPa !== undefined && (inputs.s !== undefined || inputs.h !== undefined || inputs.u !== undefined)) {
+        const prop = inputs.s !== undefined ? 's' : inputs.h !== undefined ? 'h' : 'u';
+        const target = (inputs as any)[prop] as number;
+        let Tlow = -73.0;
+        let Thigh = 2226.0;
+        for (let i = 0; i < 35; i++) {
+          const Tmid = 0.5 * (Tlow + Thigh);
+          const stMid = IdealGasEngine.solve(substanceId, Tmid, pBar);
+          if (stMid[prop] < target) Tlow = Tmid;
+          else Thigh = Tmid;
+        }
+        return IdealGasEngine.solve(substanceId, 0.5 * (Tlow + Thigh), pBar);
+      }
+      return IdealGasEngine.solve(substanceId, inputs.T ?? 25, pBar);
     } else if (cat === 'AIR') {
+      const R = AirEngine.R_AIR;
       const pBar = inputs.P_MPa !== undefined ? inputs.P_MPa * 10 : 1.01325;
-      const tK = inputs.T !== undefined ? inputs.T + 273.15 : 298.15;
-      return AirEngine.solve('T', tK, pBar);
+
+      if (inputs.T !== undefined && inputs.P_MPa !== undefined) {
+        return AirEngine.solve('T', inputs.T + 273.15, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.v !== undefined) {
+        const T_K = (inputs.P_MPa * 1000 * inputs.v) / R;
+        return AirEngine.solve('T', T_K, pBar);
+      } else if (inputs.T !== undefined && inputs.v !== undefined) {
+        const T_K = inputs.T + 273.15;
+        const calcP_bar = (R * T_K) / (inputs.v * 100);
+        return AirEngine.solve('T', T_K, calcP_bar);
+      } else if (inputs.P_MPa !== undefined && inputs.s !== undefined) {
+        const s0 = inputs.s + R * Math.log(inputs.P_MPa / AirEngine.P0_AIR);
+        return AirEngine.solve('s0', s0, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.h !== undefined) {
+        return AirEngine.solve('h', inputs.h, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.u !== undefined) {
+        return AirEngine.solve('u', inputs.u, pBar);
+      }
+      return AirEngine.solve('T', (inputs.T ?? 25) + 273.15, pBar);
     }
     // Fallback clone
     return WaterEngine.solveGeneral({ T: inputs.T || 100, P_MPa: inputs.P_MPa || 0.101325 });
@@ -71,7 +119,7 @@ export class ProcessPlotter {
         const frac = i / numPoints;
         const curT = state1.T + frac * (state2.T - state1.T);
         const curPt = this.solveState(cat, subId, { P_MPa, T: curT });
-        path.push({ T: curT, P: state1.P, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
+        path.push({ T: curPt.T, P: state1.P, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
       }
 
       // w = P * (v2 - v1) (P in kPa -> w in kJ/kg)
@@ -106,8 +154,8 @@ export class ProcessPlotter {
 
       for (let i = 0; i <= numPoints; i++) {
         const frac = i / numPoints;
-        const curT = state1.T + frac * (state2.T - state1.T);
-        const curPt = this.solveState(cat, subId, { T: curT, v });
+        const curP_MPa = state1.P_MPa + frac * (state2.P_MPa - state1.P_MPa);
+        const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, v });
         path.push({ T: curPt.T, P: curPt.P, v, s: curPt.s, h: curPt.h, u: curPt.u });
       }
 
@@ -156,9 +204,13 @@ export class ProcessPlotter {
         path.push({ T: curPt.T, P: curPt.P, v: curPt.v, s: curPt.s, h: curPt.h, u: u_target });
       }
 
-      // Q = W
-      work = (state1.T + 273.15) * (state2.s - state1.s);
-      heat = work;
+      // First Law with deltaU = 0: q = w = integral(P dv)
+      work = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        const pAvg_kPa = 0.5 * (path[i].P + path[i + 1].P) * 100; // bar -> kPa
+        work += pAvg_kPa * (path[i + 1].v - path[i].v);
+      }
+      heat = (state2.u - state1.u) + work;
     } else if (type === 'PINVERSE_V') {
       // P * v = const (C = P1 * v1)
       const C = state1.P_MPa * state1.v;
@@ -179,7 +231,7 @@ export class ProcessPlotter {
       heat = (state2.u - state1.u) + work;
     } else if (type === 'POLYTROPIC') {
       // P * v^n = const
-      const n = polytropicN !== 1 ? polytropicN : 1.3;
+      const n = polytropicN;
       const P2_MPa = targetValue;
       const v2 = state1.v * Math.pow(state1.P_MPa / P2_MPa, 1 / n);
       state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, v: v2 });
@@ -192,8 +244,12 @@ export class ProcessPlotter {
         path.push({ T: curPt.T, P: curP_MPa * 10, v: curV, s: curPt.s, h: curPt.h, u: curPt.u });
       }
 
-      // w = (P2*v2 - P1*v1) / (1 - n) (em kJ/kg)
-      work = ((P2_MPa * 1000 * v2) - (state1.P_MPa * 1000 * state1.v)) / (1 - n);
+      if (Math.abs(n - 1.0) < 1e-5) {
+        work = (state1.P_MPa * 1000 * state1.v) * Math.log(v2 / state1.v);
+      } else {
+        // w = (P2*v2 - P1*v1) / (1 - n) (em kJ/kg)
+        work = ((P2_MPa * 1000 * v2) - (state1.P_MPa * 1000 * state1.v)) / (1 - n);
+      }
       heat = (state2.u - state1.u) + work;
     } else {
       // LINEAR_PV (P = a + b*v)

@@ -549,6 +549,117 @@ export class RefrigerantEngine {
     return FLUID_CATALOG[substanceId] || FLUID_CATALOG['r134a'];
   }
 
+  private static getHeatCapacities(fluid: FluidDefinition): { cpl: number; cpv: number; cvv: number; R: number } {
+    const R = R_U / fluid.molarMass; // kJ/(kg·K)
+    const table = fluid.table;
+
+    // Estimate cpl, max(dhg/dT), and max(dug/dT) from saturation table
+    let maxDhgDt = 0;
+    let maxDugDt = 0;
+    let maxTdsgDt = 0;
+    let avgCpl = 1.5;
+    if (table.length >= 2) {
+      const first = table[0];
+      const mid = table[Math.floor(table.length / 2)];
+      if (mid.T > first.T) {
+        avgCpl = Math.max(0.8, (mid.hf - first.hf) / (mid.T - first.T));
+      }
+      for (let i = 0; i < table.length - 1; i++) {
+        const dT = table[i + 1].T - table[i].T;
+        if (dT > 0.005) {
+          const dhg = (table[i + 1].hg - table[i].hg) / dT;
+          const dug = (table[i + 1].ug - table[i].ug) / dT;
+          const dsg = (table[i + 1].sg - table[i].sg) / dT;
+          const T_K = Math.max(1.0, table[i + 1].T + 273.15);
+          if (dhg > maxDhgDt) maxDhgDt = dhg;
+          if (dug > maxDugDt) maxDugDt = dug;
+          if (T_K * dsg > maxTdsgDt) maxTdsgDt = T_K * dsg;
+        }
+      }
+    }
+
+    const cpl = Math.max(avgCpl, 2.5 * R);
+    // Ensure cpv - R > max(dug/dT) + 0.3, cpv > max(dhg/dT) + R + 0.3, and cpv > max(T*dsg/dT) + 0.3
+    const cpv = Math.max(
+      0.75 * cpl + R,
+      maxDugDt + 1.5 * R + 0.3,
+      maxDhgDt + R + 0.3,
+      maxTdsgDt + 0.3,
+      2.5 * R
+    );
+    const cvv = cpv - R;
+    return { cpl, cpv, cvv, R };
+  }
+
+  /**
+   * Evaluate single-phase thermodynamic properties at (P_bar, T_C)
+   * Continuously anchored to the saturation boundary at P_bar.
+   */
+  private static evalSinglePhasePT(
+    fluid: FluidDefinition,
+    P_bar: number,
+    T_C: number
+  ): {
+    v: number;
+    u: number;
+    h: number;
+    s: number;
+    phase: ThermodynamicPhase;
+    sat: SaturationPoint;
+  } {
+    const P_safe = Math.max(1e-5, P_bar);
+    const P_max = fluid.table[fluid.table.length - 1].P;
+    const sat = this.interpolateByP(fluid.table, P_safe, fluid.molarMass);
+    const { cpl, cpv, cvv, R } = this.getHeatCapacities(fluid);
+
+    const T_K = Math.max(1.0, T_C + 273.15);
+    const Tsat_K = Math.max(1.0, sat.T + 273.15);
+
+    if (T_C < sat.T) {
+      // Subcooled / Compressed Liquid (T < Tsat(P))
+      const dP_above = Math.max(0, P_safe - P_max);
+      const dT = (sat.T - T_C) + 0.15 * dP_above; // > 0, strictly increases with P and decreases with T
+      const v = sat.vf / (1 + 0.0012 * dT);
+      const h = sat.hf - cpl * dT;
+      const u = sat.uf - cpl * dT + 100 * P_safe * (sat.vf - v);
+      const s = sat.sf - cpl * Math.log(Math.max(1.00001, (Tsat_K + 0.15 * dP_above) / T_K));
+      return {
+        v,
+        u,
+        h,
+        s,
+        phase: 'Subcooled Liquid',
+        sat,
+      };
+    } else {
+      // Superheated Vapor (T >= Tsat(P)) or Supercritical
+      const dT = Math.max(0, T_C - sat.T);
+      const P_ref = Math.min(P_safe, P_max);
+
+      // Continuous with sat.vg at T = Tsat(P) and strictly decreasing with P / increasing with T
+      const v = (100 * P_ref * sat.vg + R * dT) / (100 * P_safe);
+
+      const dP_super = Math.max(0, P_safe - P_max);
+      const h = sat.hg + cpv * dT - 0.1 * R * dP_super;
+      const u = sat.ug + cvv * dT - 0.1 * R * dP_super;
+
+      const sPressCorr = P_safe > P_ref ? R * Math.log(P_safe / P_ref) : 0;
+      const s = sat.sg + cpv * Math.log(T_K / Tsat_K) - sPressCorr;
+
+      const phase: ThermodynamicPhase =
+        P_safe >= fluid.Pc && T_C >= fluid.Tc ? 'Supercritical' : 'Superheated Vapor';
+
+      return {
+        v,
+        u,
+        h,
+        s,
+        phase,
+        sat,
+      };
+    }
+  }
+
   static solve(substanceId: string, params: {
     mode: CalcMode;
     type?: 'T' | 'P';
@@ -559,78 +670,161 @@ export class RefrigerantEngine {
     const fluid = FLUID_CATALOG[substanceId] || FLUID_CATALOG['r134a'];
     const table = fluid.table;
 
-    let targetSat: SaturationPoint;
+    // -------------------------------------------------------------------------
+    // CASE 1: T & P (1_TP)
+    // -------------------------------------------------------------------------
+    if (
+      params.mode === 'GENERAL' &&
+      ((params.type === 'T' && params.secondProp === 'P') ||
+        (params.type === 'P' && params.secondProp === 'T'))
+    ) {
+      const T_C = params.type === 'T' ? (params.value ?? 20) : (params.secondVal ?? 20);
+      const P_bar = params.type === 'P' ? (params.value ?? 1) : (params.secondVal ?? 1);
+      const satAtP = this.interpolateByP(table, P_bar, fluid.molarMass);
 
-    // Check if we are querying by T or by P
-    if (params.type === 'T' || (params.secondProp === 'T' && params.secondVal !== undefined)) {
-      const targetT = params.type === 'T' ? (params.value ?? 0) : (params.secondVal ?? 0);
-      targetSat = this.interpolateByT(table, targetT);
-    } else {
-      const targetP = params.type === 'P' ? (params.value ?? 1) : (params.secondVal ?? 1);
-      targetSat = this.interpolateByP(table, targetP);
+      if (P_bar < fluid.Pc && Math.abs(T_C - satAtP.T) < 0.02) {
+        return this.buildSaturatedState(fluid, params.mode, satAtP, 1.0, 'Saturated Vapor');
+      }
+
+      const sp = this.evalSinglePhasePT(fluid, P_bar, T_C);
+      return this.buildSinglePhaseState(fluid, params.mode, T_C, P_bar, sp.v, sp.u, sp.h, sp.s, sp.phase, sp.sat);
     }
 
-    let x = 1.0;
-    let phase: ThermodynamicPhase = 'Saturated Vapor';
+    // -------------------------------------------------------------------------
+    // CASE 2: T & X or P & X (or SATURATION mode)
+    // -------------------------------------------------------------------------
+    if (params.secondProp === 'x' || params.mode === 'SATURATION') {
+      const targetSat =
+        params.type === 'T'
+          ? this.interpolateByT(table, params.value ?? 0, fluid.molarMass)
+          : this.interpolateByP(table, params.value ?? 1, fluid.molarMass);
 
-    if (params.secondProp === 'x') {
-      x = Math.max(0, Math.min(1, params.secondVal ?? 0));
-      if (x === 0) phase = 'Saturated Liquid';
-      else if (x === 1) phase = 'Saturated Vapor';
-      else phase = 'Saturated Mixture';
-    } else if (params.secondProp === 'v' && params.secondVal !== undefined) {
-      if (params.secondVal < targetSat.vf) {
-        phase = 'Subcooled Liquid';
-        x = 0;
-      } else if (params.secondVal > targetSat.vg) {
-        phase = 'Superheated Vapor';
-        x = 1;
-      } else {
-        phase = 'Saturated Mixture';
+      let x = 1.0;
+      if (params.secondProp === 'x') {
+        x = Math.max(0, Math.min(1, params.secondVal ?? 0));
+      } else if (params.secondProp === 'v' && params.secondVal !== undefined) {
         x = (params.secondVal - targetSat.vf) / (targetSat.vg - targetSat.vf);
-      }
-    } else if (params.secondProp === 'u' && params.secondVal !== undefined) {
-      if (params.secondVal < targetSat.uf) {
-        phase = 'Subcooled Liquid';
-        x = 0;
-      } else if (params.secondVal > targetSat.ug) {
-        phase = 'Superheated Vapor';
-        x = 1;
-      } else {
-        phase = 'Saturated Mixture';
+      } else if (params.secondProp === 'u' && params.secondVal !== undefined) {
         x = (params.secondVal - targetSat.uf) / (targetSat.ug - targetSat.uf);
-      }
-    } else if (params.secondProp === 'h' && params.secondVal !== undefined) {
-      if (params.secondVal < targetSat.hf) {
-        phase = 'Subcooled Liquid';
-        x = 0;
-      } else if (params.secondVal > targetSat.hg) {
-        phase = 'Superheated Vapor';
-        x = 1;
-      } else {
-        phase = 'Saturated Mixture';
+      } else if (params.secondProp === 'h' && params.secondVal !== undefined) {
         x = (params.secondVal - targetSat.hf) / (targetSat.hg - targetSat.hf);
-      }
-    } else if (params.secondProp === 's' && params.secondVal !== undefined) {
-      if (params.secondVal < targetSat.sf) {
-        phase = 'Subcooled Liquid';
-        x = 0;
-      } else if (params.secondVal > targetSat.sg) {
-        phase = 'Superheated Vapor';
-        x = 1;
-      } else {
-        phase = 'Saturated Mixture';
+      } else if (params.secondProp === 's' && params.secondVal !== undefined) {
         x = (params.secondVal - targetSat.sf) / (targetSat.sg - targetSat.sf);
       }
+
+      x = Math.max(0, Math.min(1, x));
+      let phase: ThermodynamicPhase = 'Saturated Mixture';
+      if (Math.abs(x) < 1e-6) phase = 'Saturated Liquid';
+      else if (Math.abs(x - 1) < 1e-6) phase = 'Saturated Vapor';
+
+      return this.buildSaturatedState(fluid, params.mode, targetSat, x, phase);
     }
 
-    x = Math.max(0, Math.min(1, x));
+    // -------------------------------------------------------------------------
+    // CASE 3: P & (v | u | h | s) in GENERAL mode (7_PV, 8_PU, 9_PH, 10_PS)
+    // -------------------------------------------------------------------------
+    if (
+      params.type === 'P' &&
+      (params.secondProp === 'v' || params.secondProp === 'u' || params.secondProp === 'h' || params.secondProp === 's') &&
+      params.secondVal !== undefined
+    ) {
+      const P_bar = Math.max(1e-5, params.value ?? 1);
+      const prop = params.secondProp;
+      const targetVal = params.secondVal;
+      const sat = this.interpolateByP(table, P_bar, fluid.molarMass);
 
-    // Properties at (T, x)
-    const v = targetSat.vf + x * (targetSat.vg - targetSat.vf);
-    const u = targetSat.uf + x * (targetSat.ug - targetSat.uf);
-    const h = targetSat.hf + x * (targetSat.hg - targetSat.hf);
-    const s = targetSat.sf + x * (targetSat.sg - targetSat.sf);
+      const valF = prop === 'v' ? sat.vf : prop === 'u' ? sat.uf : prop === 'h' ? sat.hf : sat.sf;
+      const valG = prop === 'v' ? sat.vg : prop === 'u' ? sat.ug : prop === 'h' ? sat.hg : sat.sg;
+
+      if (P_bar < fluid.Pc && targetVal >= valF && targetVal <= valG) {
+        const x = Math.max(0, Math.min(1, (targetVal - valF) / Math.max(1e-12, valG - valF)));
+        let phase: ThermodynamicPhase = 'Saturated Mixture';
+        if (Math.abs(x) < 1e-6) phase = 'Saturated Liquid';
+        else if (Math.abs(x - 1) < 1e-6) phase = 'Saturated Vapor';
+        return this.buildSaturatedState(fluid, params.mode, sat, x, phase);
+      }
+
+      // Single-phase: Bisect T
+      let Tlow = targetVal < valF ? sat.T - 200 : sat.T;
+      let Thigh = targetVal < valF ? sat.T : sat.T + 1200;
+      if (Tlow < -272) Tlow = -272;
+
+      for (let i = 0; i < 40; i++) {
+        const Tmid = 0.5 * (Tlow + Thigh);
+        const evalMid = this.evalSinglePhasePT(fluid, P_bar, Tmid);
+        const midVal = evalMid[prop];
+        if (midVal < targetVal) Tlow = Tmid;
+        else Thigh = Tmid;
+      }
+
+      const T_final = 0.5 * (Tlow + Thigh);
+      const sp = this.evalSinglePhasePT(fluid, P_bar, T_final);
+      return this.buildSinglePhaseState(fluid, params.mode, T_final, P_bar, sp.v, sp.u, sp.h, sp.s, sp.phase, sp.sat);
+    }
+
+    // -------------------------------------------------------------------------
+    // CASE 4: T & (v | u | h | s) in GENERAL mode (2_TV, 3_TU, 4_TH, 5_TS)
+    // -------------------------------------------------------------------------
+    if (
+      params.type === 'T' &&
+      (params.secondProp === 'v' || params.secondProp === 'u' || params.secondProp === 'h' || params.secondProp === 's') &&
+      params.secondVal !== undefined
+    ) {
+      const T_C = params.value ?? 20;
+      const prop = params.secondProp;
+      const targetVal = params.secondVal;
+      const sat = this.interpolateByT(table, T_C, fluid.molarMass);
+
+      const valF = prop === 'v' ? sat.vf : prop === 'u' ? sat.uf : prop === 'h' ? sat.hf : sat.sf;
+      const valG = prop === 'v' ? sat.vg : prop === 'u' ? sat.ug : prop === 'h' ? sat.hg : sat.sg;
+
+      if (T_C < fluid.Tc && targetVal >= valF && targetVal <= valG) {
+        const x = Math.max(0, Math.min(1, (targetVal - valF) / Math.max(1e-12, valG - valF)));
+        let phase: ThermodynamicPhase = 'Saturated Mixture';
+        if (Math.abs(x) < 1e-6) phase = 'Saturated Liquid';
+        else if (Math.abs(x - 1) < 1e-6) phase = 'Saturated Vapor';
+        return this.buildSaturatedState(fluid, params.mode, sat, x, phase);
+      }
+
+      // Single-phase: Bisect P
+      // At fixed T, as P increases, v, u, h, s all decrease.
+      let Plow = targetVal > valG ? 0.0001 : sat.P;
+      let Phigh = targetVal > valG ? sat.P : fluid.Pc * 5;
+      if (T_C >= fluid.Tc) {
+        Plow = 0.0001;
+        Phigh = fluid.Pc * 5;
+      }
+
+      for (let i = 0; i < 45; i++) {
+        const Pmid = 0.5 * (Plow + Phigh);
+        const evalMid = this.evalSinglePhasePT(fluid, Pmid, T_C);
+        const midVal = evalMid[prop];
+        // Since property decreases as P increases:
+        if (midVal > targetVal) Plow = Pmid;
+        else Phigh = Pmid;
+      }
+
+      const P_final = 0.5 * (Plow + Phigh);
+      const sp = this.evalSinglePhasePT(fluid, P_final, T_C);
+      return this.buildSinglePhaseState(fluid, params.mode, T_C, P_final, sp.v, sp.u, sp.h, sp.s, sp.phase, sp.sat);
+    }
+
+    // Default fallback
+    const fallbackSat = this.interpolateByT(table, params.value ?? 20, fluid.molarMass);
+    return this.buildSaturatedState(fluid, params.mode, fallbackSat, 1.0, 'Saturated Vapor');
+  }
+
+  private static buildSaturatedState(
+    fluid: FluidDefinition,
+    mode: CalcMode,
+    sat: SaturationPoint,
+    x: number,
+    phase: ThermodynamicPhase
+  ): ThermodynamicState {
+    const v = sat.vf + x * (sat.vg - sat.vf);
+    const u = sat.uf + x * (sat.ug - sat.uf);
+    const h = sat.hf + x * (sat.hg - sat.hf);
+    const s = sat.sf + x * (sat.sg - sat.sf);
 
     return {
       id: Math.random().toString(36).substring(2, 9),
@@ -639,32 +833,96 @@ export class RefrigerantEngine {
       substanceId: fluid.id,
       substanceName: fluid.name,
       category: fluid.category,
-      mode: params.mode,
-      T: targetSat.T,
-      P: targetSat.P,
-      P_MPa: targetSat.P * 0.1,
+      mode,
+      T: sat.T,
+      P: sat.P,
+      P_MPa: sat.P * 0.1,
       v,
       u,
       h,
       s,
-      x: phase.includes('Saturated') ? x : null,
+      x,
       phase,
-      vf: targetSat.vf,
-      vg: targetSat.vg,
-      uf: targetSat.uf,
-      ug: targetSat.ug,
-      hf: targetSat.hf,
-      hg: targetSat.hg,
-      sf: targetSat.sf,
-      sg: targetSat.sg
+      molarMass: fluid.molarMass,
+      vf: sat.vf,
+      vg: sat.vg,
+      uf: sat.uf,
+      ug: sat.ug,
+      hf: sat.hf,
+      hg: sat.hg,
+      sf: sat.sf,
+      sg: sat.sg,
     };
   }
 
-  private static interpolateByT(table: SaturationPoint[], T: number): SaturationPoint {
-    let idx = 0;
-    if (T <= table[0].T) return { ...table[0], T };
+  private static buildSinglePhaseState(
+    fluid: FluidDefinition,
+    mode: CalcMode,
+    T: number,
+    P_bar: number,
+    v: number,
+    u: number,
+    h: number,
+    s: number,
+    phase: ThermodynamicPhase,
+    sat: SaturationPoint
+  ): ThermodynamicState {
+    return {
+      id: Math.random().toString(36).substring(2, 9),
+      stateNumber: 1,
+      timestamp: Date.now(),
+      substanceId: fluid.id,
+      substanceName: fluid.name,
+      category: fluid.category,
+      mode,
+      T,
+      P: P_bar,
+      P_MPa: P_bar * 0.1,
+      v,
+      u,
+      h,
+      s,
+      x: null,
+      phase,
+      molarMass: fluid.molarMass,
+      vf: sat.vf,
+      vg: sat.vg,
+      uf: sat.uf,
+      ug: sat.ug,
+      hf: sat.hf,
+      hg: sat.hg,
+      sf: sat.sf,
+      sg: sat.sg,
+    };
+  }
+
+  private static interpolateByT(table: SaturationPoint[], T: number, molarMass: number = 100): SaturationPoint {
+    const R = R_U / molarMass;
+    if (T <= table[0].T) {
+      if (T === table[0].T || table.length < 2) return { ...table[0], T };
+      // Smooth low-temperature extrapolation below table[0].T
+      const p0 = table[0];
+      const p1 = table[1];
+      const dT = T - p0.T; // <= 0
+      const T_K = Math.max(2.0, T + 273.15);
+      const T0_K = Math.max(2.0, p0.T + 273.15);
+      const dlnP_dT = Math.log(p1.P / p0.P) / (p1.T - p0.T);
+      const P = Math.max(1e-5, p0.P * Math.exp(dlnP_dT * dT));
+      const dhf_dT = (p1.hf - p0.hf) / (p1.T - p0.T);
+      const dhg_dT = Math.max(R * 1.5, (p1.hg - p0.hg) / (p1.T - p0.T));
+      const vf = p0.vf * Math.max(0.7, 1 + 0.001 * dT);
+      const vg = p0.vg * (p0.P / P) * (T_K / T0_K);
+      const hf = p0.hf + dhf_dT * dT;
+      const hg = p0.hg + dhg_dT * dT;
+      const uf = p0.uf + dhf_dT * dT;
+      const ug = p0.ug + (dhg_dT - R) * dT;
+      const sf = p0.sf + dhf_dT * Math.log(T_K / T0_K);
+      const sg = p0.sg + dhg_dT * Math.log(T_K / T0_K) - R * Math.log(P / p0.P);
+      return { T, P, vf, vg, uf, ug, hf, hg, sf, sg };
+    }
     if (T >= table[table.length - 1].T) return { ...table[table.length - 1], T };
 
+    let idx = 0;
     for (let i = 0; i < table.length - 1; i++) {
       if (T >= table[i].T && T <= table[i + 1].T) {
         idx = i;
@@ -690,11 +948,19 @@ export class RefrigerantEngine {
     };
   }
 
-  private static interpolateByP(table: SaturationPoint[], P: number): SaturationPoint {
-    let idx = 0;
-    if (P <= table[0].P) return { ...table[0], P };
+  private static interpolateByP(table: SaturationPoint[], P: number, molarMass: number = 100): SaturationPoint {
+    if (P <= table[0].P) {
+      if (P === table[0].P || table.length < 2) return { ...table[0], P };
+      const p0 = table[0];
+      const p1 = table[1];
+      const dT_dlnP = (p1.T - p0.T) / Math.log(p1.P / p0.P);
+      const T = Math.max(-271.15, p0.T + dT_dlnP * Math.log(Math.max(1e-5, P) / p0.P));
+      const satT = this.interpolateByT(table, T, molarMass);
+      return { ...satT, P };
+    }
     if (P >= table[table.length - 1].P) return { ...table[table.length - 1], P };
 
+    let idx = 0;
     for (let i = 0; i < table.length - 1; i++) {
       if (P >= table[i].P && P <= table[i + 1].P) {
         idx = i;

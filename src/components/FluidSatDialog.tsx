@@ -13,7 +13,7 @@ interface FluidSatDialogProps {
   onCalculate: (data: {
     primaryType: 'T' | 'P';
     primaryValue: number;
-    mixtureType: 'x' | 'sat_liq' | 'sat_vap' | 'h' | 's' | 'v';
+    mixtureType: 'x' | 'sat_liq' | 'sat_vap' | 'u' | 'h' | 's' | 'v';
     mixtureValue?: number;
   }) => void;
 }
@@ -31,7 +31,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
   const [valT, setValT] = useState<string>('100');
   const [valP, setValP] = useState<string>('0.101325'); // MPa default
 
-  const [mixtureType, setMixtureType] = useState<'x' | 'sat_liq' | 'sat_vap' | 'h' | 's' | 'v'>('x');
+  const [mixtureType, setMixtureType] = useState<'x' | 'sat_liq' | 'sat_vap' | 'u' | 'h' | 's' | 'v'>('x');
   const [valMix, setValMix] = useState<string>('0.5');
 
   React.useEffect(() => {
@@ -205,6 +205,20 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
                 />
                 <span className={`text-xs ${mixtureType === 'x' ? 'font-bold text-black' : 'text-slate-700'}`}>
                   Título (0 &le; x &le; 1)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mixtureType"
+                  value="u"
+                  checked={mixtureType === 'u'}
+                  onChange={() => setMixtureType('u')}
+                  className="accent-black w-3.5 h-3.5 cursor-pointer"
+                />
+                <span className={`text-xs ${mixtureType === 'u' ? 'font-bold text-black' : 'text-slate-700'}`}>
+                  Energia Int. (u) [{units.u}]
                 </span>
               </label>
 
