@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UnitSystem } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
 import { Check, X, HelpCircle } from 'lucide-react';
@@ -29,19 +29,17 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
 }) => {
   const [primaryType, setPrimaryType] = useState<'T' | 'P'>('T');
   const [valT, setValT] = useState<string>('100');
-  const [valP, setValP] = useState<string>('0.101325'); // MPa default
+  const [valP, setValP] = useState<string>('0.101325');
 
   const [mixtureType, setMixtureType] = useState<'x' | 'sat_liq' | 'sat_vap' | 'u' | 'h' | 's' | 'v'>('x');
   const [valMix, setValMix] = useState<string>('0.5');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (initialT !== undefined && !isNaN(initialT)) setValT(Number(initialT.toFixed(2)).toString());
       if (initialP !== undefined && !isNaN(initialP)) setValP(Number(initialP.toFixed(4)).toString());
     }
   }, [isOpen, initialT, initialP]);
-
-  if (!isOpen) return null;
 
   const units = UnitConverter.getUnitLabels(unitSystem);
 
@@ -64,7 +62,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
       mixVal = parseFloat(valMix);
       if (isNaN(mixVal)) return alert('Insira um valor numérico para a condição de mistura.');
       if (mixtureType === 'x' && (mixVal < 0 || mixVal > 1)) {
-        return alert('O título (Quality x) deve estar entre 0 e 1.');
+        return alert('O título (x) deve estar entre 0 e 1.');
       }
     }
 
@@ -77,22 +75,39 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
     onClose();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs font-mono">
       <div className="bg-[#f0f0f0] border-2 border-slate-900 max-w-lg w-full p-4 shadow-2xl text-slate-900 space-y-4">
         {/* Title Bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Propriedades de Saturação - {substanceName}
+            Propriedades de Saturação — {substanceName}
           </span>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
 
-        {/* Content matching CATT3 FluidSatDialog */}
+        {/* Content */}
         <div className="space-y-3 text-xs">
-          {/* Section 1: Entrada Primária (Primary Input) */}
+          {/* Section 1: Entrada Primária */}
           <div className="border border-slate-400 bg-white p-3 space-y-2.5">
             <span className="block font-bold text-[11px] border-b border-slate-300 pb-1 uppercase text-slate-700">
               1. Entrada Primária de Saturação
@@ -159,7 +174,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Condição de Mistura / Título (Mixture Condition) */}
+          {/* Section 2: Condição de Mistura / Título */}
           <div className="border border-slate-400 bg-white p-3 space-y-2">
             <span className="block font-bold text-[11px] border-b border-slate-300 pb-1 uppercase text-slate-700">
               2. Condição da Mistura / Fase no Domo
@@ -265,7 +280,6 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
               </label>
             </div>
 
-            {/* Input field for numerical mixture parameter */}
             {mixtureType !== 'sat_liq' && mixtureType !== 'sat_vap' && (
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 mt-2">
                 <span className="text-[11px] font-bold text-slate-800">
@@ -276,7 +290,6 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
                   step="any"
                   value={valMix}
                   onChange={(e) => setValMix(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                   className="w-28 px-1.5 py-1 text-right text-xs border border-black bg-white font-mono font-bold outline-none"
                 />
               </div>
@@ -284,11 +297,11 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: OK, Cancel, Help */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
             onClick={handleOK}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <Check className="w-4 h-4 text-emerald-700 stroke-[3]" />
             <span>OK</span>
@@ -296,15 +309,15 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
 
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
             <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('No modo Propriedades de Saturação do CATT3, você entra com a Temperatura ou Pressão no domo de vapor, e define o ponto de mistura (x, líquido saturado ou vapor saturado). Os valores de saturação vf, vg, hf, hg, etc. serão calculados.')}
-            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            onClick={() => alert('No modo Propriedades de Saturação do EntroLab, informe a Temperatura ou Pressão no domo de vapor e defina a condição da mistura (título x, líquido saturado ou vapor saturado). Os limites de saturação vf, vg, hf, hg, sf e sg serão calculados.')}
+            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
             <span>Ajuda</span>

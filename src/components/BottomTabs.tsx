@@ -80,7 +80,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
     { id: 'WATER', label: 'Água / Vapor' },
     { id: 'REFRIGERANTS', label: 'Refrigerantes' },
     { id: 'CRYOGENICS', label: 'Criogênicos' },
-    { id: 'AIR', label: 'Ar (Gás Real / A-17)' },
+    { id: 'AIR', label: 'Ar (Tabela A-17)' },
     { id: 'IDEAL_GASES', label: 'Gases Ideais' },
     { id: 'COMPRESSIBILITY', label: 'Compressibilidade (Z)' },
     { id: 'PSYCHROMETRICS', label: 'Psicrometria' },
@@ -148,7 +148,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
       {/* Bottom Status bar */}
       <div className="px-3 py-1 bg-[#f0f0f0] border-t border-slate-300 text-[11px] text-slate-700 flex items-center justify-between">
         <span>{statusText || 'Pronto para calcular.'}</span>
-        <span className="text-slate-500 text-[10px]">CATT3 Padrão &bull; IAPWS-IF97 &bull; NIST</span>
+        <span className="text-slate-500 text-[10px]">EntroLab &bull; Padrão CATT3 &bull; IAPWS-IF97 &bull; NIST</span>
       </div>
     </div>
   );

@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UnitSystem } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
 import { Check, X, HelpCircle } from 'lucide-react';
 
 export type PsychroInputMode =
   | 'Tdb_RH'  // 1. Tbs & UR (%)
-  | 'Tdb_Twb' // 2. Tbs & Tbu (°C)
-  | 'Tdb_Tdp' // 3. Tbs & Tpo (°C)
-  | 'Tdb_w'   // 4. Tbs & w (kg/kg)
-  | 'Tdb_h';  // 5. Tbs & h (kJ/kg)
+  | 'Tdb_Twb' // 2. Tbs & Tbu
+  | 'Tdb_Tdp' // 3. Tbs & Tpo
+  | 'Tdb_w';  // 4. Tbs & w (kg/kg)
 
 interface PsychroCalculateDialogProps {
   isOpen: boolean;
@@ -29,23 +28,33 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [mode, setMode] = useState<PsychroInputMode>('Tdb_RH');
-  const [valTdb, setValTdb] = useState<string>('25'); // °C
-  const [valRH, setValRH] = useState<string>('50');   // %
-  const [valTwb, setValTwb] = useState<string>('18'); // °C
-  const [valTdp, setValTdp] = useState<string>('14'); // °C
-  const [valW, setValW] = useState<string>('0.010');  // kg/kg
-  const [valPatm, setValPatm] = useState<string>('101.325'); // kPa
-
-  if (!isOpen) return null;
+  const [valTdb, setValTdb] = useState<string>('25');
+  const [valRH, setValRH] = useState<string>('50');
+  const [valTwb, setValTwb] = useState<string>('18');
+  const [valTdp, setValTdp] = useState<string>('14');
+  const [valW, setValW] = useState<string>('0.010');
+  const [valPatm, setValPatm] = useState<string>('0.1013');
 
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  const handleOK = () => {
-    const tdb = parseFloat(valTdb);
-    if (isNaN(tdb)) return alert('Insira uma Temperatura de Bulbo Seco (Tbs) válida.');
+  useEffect(() => {
+    if (isOpen) {
+      const pInit = UnitConverter.fromInternalP(0.101325, units.P);
+      setValPatm(pInit >= 10 ? pInit.toFixed(3) : pInit.toFixed(4));
+      setValTdb(UnitConverter.fromInternalT(25, units.T).toFixed(1));
+      setValTwb(UnitConverter.fromInternalT(18, units.T).toFixed(1));
+      setValTdp(UnitConverter.fromInternalT(14, units.T).toFixed(1));
+    }
+  }, [isOpen, unitSystem, units.P, units.T]);
 
-    const patm = parseFloat(valPatm);
-    if (isNaN(patm) || patm <= 0) return alert('Insira uma Pressão Atmosférica válida (> 0).');
+  const handleOK = () => {
+    const tdbUser = parseFloat(valTdb);
+    if (isNaN(tdbUser)) return alert('Insira uma Temperatura de Bulbo Seco (Tbs) válida.');
+    const tdbC = UnitConverter.toInternalT(tdbUser, units.T);
+
+    const patmUser = parseFloat(valPatm);
+    if (isNaN(patmUser) || patmUser <= 0) return alert('Insira uma Pressão Atmosférica válida (> 0).');
+    const patmKPa = UnitConverter.toInternalP(patmUser, units.P) * 1000; // MPa -> kPa
 
     let inputMode: 'RH' | 'Twb' | 'Tdp' | 'w' = 'RH';
     let val = 0;
@@ -56,30 +65,47 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
       if (isNaN(val) || val < 0 || val > 100) return alert('Umidade Relativa (UR) deve estar entre 0% e 100%.');
     } else if (mode === 'Tdb_Twb') {
       inputMode = 'Twb';
-      val = parseFloat(valTwb);
-      if (isNaN(val) || val > tdb) return alert('Bulbo Úmido (Tbu) não pode ser maior que o Bulbo Seco (Tbs).');
+      const twbUser = parseFloat(valTwb);
+      if (isNaN(twbUser)) return alert('Insira uma Temperatura de Bulbo Úmido (Tbu) válida.');
+      val = UnitConverter.toInternalT(twbUser, units.T);
+      if (val > tdbC + 1e-6) return alert('Bulbo Úmido (Tbu) não pode ser maior que o Bulbo Seco (Tbs).');
     } else if (mode === 'Tdb_Tdp') {
       inputMode = 'Tdp';
-      val = parseFloat(valTdp);
-      if (isNaN(val) || val > tdb) return alert('Ponto de Orvalho (Tpo) não pode ser maior que o Bulbo Seco (Tbs).');
+      const tdpUser = parseFloat(valTdp);
+      if (isNaN(tdpUser)) return alert('Insira uma Temperatura de Ponto de Orvalho (Tpo) válida.');
+      val = UnitConverter.toInternalT(tdpUser, units.T);
+      if (val > tdbC + 1e-6) return alert('Ponto de Orvalho (Tpo) não pode ser maior que o Bulbo Seco (Tbs).');
     } else if (mode === 'Tdb_w') {
       inputMode = 'w';
       val = parseFloat(valW);
-      if (isNaN(val) || val < 0) return alert('Razão de Umidade (w) deve ser positiva.');
-    } else if (mode === 'Tdb_h') {
-      // Convert rough enthalpy back to RH
-      inputMode = 'RH';
-      val = 50;
+      if (isNaN(val) || val < 0) return alert('Razão de Umidade (ω) deve ser positiva.');
     }
 
     onCalculate({
-      P_atm_kPa: patm,
-      Tdb: tdb,
+      P_atm_kPa: patmKPa,
+      Tdb: tdbC,
       inputMode,
       value: val,
     });
     onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs font-mono">
@@ -87,14 +113,14 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
         {/* Title Bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Propriedades Psicrométricas (CATT3)
+            Propriedades Psicrométricas (Ar Úmido)
           </span>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
 
-        {/* Form Body matching CATT3 PsycDialog */}
+        {/* Form Body */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
           {/* Left panel: Input Type */}
           <div className="sm:col-span-5 border border-slate-400 bg-white p-3 space-y-2">
@@ -102,10 +128,10 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
               Tipo de Entrada
             </span>
             {[
-              { id: 'Tdb_RH', label: '1. Tbs & UR (%)' },
-              { id: 'Tdb_Twb', label: '2. Tbs & Tbu (°C)' },
-              { id: 'Tdb_Tdp', label: '3. Tbs & Tpo (°C)' },
-              { id: 'Tdb_w', label: '4. Tbs & w (kg/kg)' },
+              { id: 'Tdb_RH', label: '1. Tbs e UR (%)' },
+              { id: 'Tdb_Twb', label: `2. Tbs e Tbu (${units.T})` },
+              { id: 'Tdb_Tdp', label: `3. Tbs e Tpo (${units.T})` },
+              { id: 'Tdb_w', label: '4. Tbs e ω (kg/kg)' },
             ].map((opt) => (
               <label
                 key={opt.id}
@@ -140,7 +166,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
                 onChange={(e) => setValPatm(e.target.value)}
                 className="w-24 px-1.5 py-1 text-right text-xs border border-black bg-white font-mono font-bold outline-none"
               />
-              <span className="w-12 text-[11px] font-mono text-slate-600">kPa</span>
+              <span className="w-12 text-[11px] font-mono text-slate-600">{units.P}</span>
             </div>
 
             {/* Dry Bulb Temp */}
@@ -217,7 +243,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
             {/* Humidity Ratio */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-36 text-[11px] ${mode === 'Tdb_w' ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Razão Umidade (w)
+                Razão Umidade (ω)
               </span>
               <input
                 type="number"
@@ -238,7 +264,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
             onClick={handleOK}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <Check className="w-4 h-4 text-emerald-700 stroke-[3]" />
             <span>OK</span>
@@ -246,15 +272,15 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
 
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
             <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('Na Psicrometria do CATT3, você pode fornecer qualquer par de propriedades psicrométricas independentes (ex: Bulbo Seco e Umidade Relativa) sob uma dada pressão atmosférica para obter todos os parâmetros do ar úmido.')}
-            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            onClick={() => alert('Na Psicrometria do EntroLab, você pode fornecer qualquer par de propriedades psicrométricas independentes (Bulbo Seco com Umidade Relativa, Bulbo Úmido, Ponto de Orvalho ou Razão de Umidade) sob a pressão total desejada.')}
+            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
             <span>Ajuda</span>

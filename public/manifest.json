@@ -1,6 +1,6 @@
 {
-  "name": "CATT3 Web - Tabelas Termodinâmicas",
-  "short_name": "CATT3",
+  "name": "EntroLab - Tabelas Termodinâmicas",
+  "short_name": "EntroLab",
   "description": "Calculadora e tabelas termodinâmicas profissionais de alta precisão (Água, Refrigerantes, Gases Ideais, Ar, Psicrometria).",
   "start_url": "/",
   "display": "standalone",

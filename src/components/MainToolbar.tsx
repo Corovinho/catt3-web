@@ -188,6 +188,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white flex items-center justify-between"
               >
                 <span>Calcular Propriedades...</span>
+                <span className="text-[10px] opacity-70">F2</span>
               </button>
               <button
                 onClick={() => { closeMenu(); onOpenUnits(); }}
@@ -236,7 +237,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
                 onClick={() => { closeMenu(); onOpenProcess(); }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"
               >
-                Traçar Processo (Plot Process)...
+                Traçar Processo...
               </button>
               {onClearProcessCurves && (
                 <button
@@ -301,13 +302,13 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
                 onClick={() => { closeMenu(); onOpenAbout?.(); }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"
               >
-                Sobre o CATT3...
+                Sobre o EntroLab...
               </button>
               <button
                 onClick={() => {
                   closeMenu();
                   alert(
-                    'Instruções de Uso do CATT3:\n1. Selecione a substância desejada no menu "Tabelas / Substâncias" ou nas abas inferiores.\n2. Clique em "Calcular" para abrir o diálogo de propriedades e inserir as variáveis conhecidas.\n3. O estado será plotado no diagrama (T-s ou P-v) e registrado na tabela de histórico abaixo.\n4. Utilize "Processo" para traçar transformações termodinâmicas (isotérmica, isobárica, politrópica, etc.).'
+                    'Instruções de Uso do EntroLab:\n1. Selecione a substância desejada no menu "Tabelas / Substâncias" ou nas abas inferiores.\n2. Clique em "Calcular" (ou pressione F2) para abrir o diálogo de propriedades e inserir as variáveis conhecidas.\n3. O estado será plotado no diagrama (T-s ou P-v) e registrado na tabela de histórico abaixo.\n4. Utilize "Processo" para traçar transformações termodinâmicas (isotérmica, isobárica, isentrópica, politrópica, etc.).'
                   );
                 }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"
@@ -387,7 +388,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
         <button
           onClick={onOpenCalculate}
           className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-400 flex items-center gap-1.5 text-xs font-bold shadow-2xs cursor-pointer"
-          title="Calcular Propriedades da Substância Ativa"
+          title="Calcular Propriedades da Substância Ativa (F2)"
         >
           <Calculator className="w-4 h-4 text-black" />
           <span>Calcular</span>

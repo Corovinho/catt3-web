@@ -28,8 +28,6 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
     }
   }, [isOpen, currentSystem, currentUnitSystem]);
 
-  if (!isOpen) return null;
-
   const handleApply = (sys: UnitSystem) => {
     if (onSelectSystem) onSelectSystem(sys);
     if (onSelectUnitSystem) onSelectUnitSystem(sys);
@@ -39,6 +37,23 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
   const handleOK = () => {
     handleApply(selected);
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
 
   const rows: { id: UnitSystem; num: number; T: string; P: string; V: string; UH: string; S: string }[] = [
     { id: 'SI', num: 1, T: 'C', P: 'MPa', V: 'm3/kg', UH: 'kJ/kg', S: 'kJ/kg/K' },
@@ -56,12 +71,12 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
             Sistema de Unidades
           </span>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
 
-        {/* Units Matrix matching Image 2 */}
+        {/* Units Matrix */}
         <div className="border border-slate-400 bg-white p-3 overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
             <thead>
@@ -69,9 +84,9 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
                 <th className="py-1 px-2 w-16"></th>
                 <th className="py-1 px-2">T</th>
                 <th className="py-1 px-2">P</th>
-                <th className="py-1 px-2">V</th>
-                <th className="py-1 px-2">U/H</th>
-                <th className="py-1 px-2">S</th>
+                <th className="py-1 px-2">v</th>
+                <th className="py-1 px-2">u / h</th>
+                <th className="py-1 px-2">s</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -105,11 +120,11 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
           </table>
         </div>
 
-        {/* Buttons matching Image 2: OK, Cancel, Help */}
+        {/* Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
             onClick={handleOK}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <Check className="w-4 h-4 text-emerald-700 stroke-[3]" />
             <span>OK</span>
@@ -117,15 +132,15 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
 
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
             <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('Selecione uma das 4 opções de unidades padronizadas do CATT3.')}
-            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            onClick={() => alert('Selecione uma das 5 opções de sistemas de unidades padronizados (SI em MPa, SI em kPa, SI Molar, Britânico Mássico e Britânico Molar).')}
+            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
             <span>Ajuda</span>

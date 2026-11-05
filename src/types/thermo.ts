@@ -159,12 +159,14 @@ export interface ProcessPoint {
   s: number;
   h: number;
   u?: number;
+  x?: number | null;
 }
 
 export interface ProcessCurve {
   id: string;
   type: ProcessType;
   label: string;
+  substanceId?: string;
   substanceName: string;
   category: SubstanceCategory;
   state1: ThermodynamicState;

@@ -40,17 +40,17 @@ const REFRIGERANTS_COL2 = [
 
 // 11 Cryogenics matching CATT3 screenshot
 const CRYOGENICS_ITEMS = [
-  { id: 'ammonia', label: 'Ammonia', alt: 'nh3' },
-  { id: 'argon', label: 'Argon' },
-  { id: 'ethane', label: 'Ethane' },
-  { id: 'ethylene', label: 'Ethylene' },
-  { id: 'helium', label: 'Helium' },
-  { id: 'isobutane', label: 'Iso-Butane' },
-  { id: 'methane', label: 'Methane', alt: 'ch4' },
-  { id: 'neon', label: 'Neon' },
-  { id: 'nitrogen', label: 'Nitrogen', alt: 'n2' },
-  { id: 'oxygen', label: 'Oxygen', alt: 'o2' },
-  { id: 'propane', label: 'Propane' },
+  { id: 'ammonia', label: 'Amônia (NH₃)', alt: 'nh3' },
+  { id: 'argon', label: 'Argônio (Ar)' },
+  { id: 'ethane', label: 'Etano (C₂H₆)' },
+  { id: 'ethylene', label: 'Etileno (C₂H₄)' },
+  { id: 'helium', label: 'Hélio (He)' },
+  { id: 'isobutane', label: 'Iso-Butano (i-C₄H₁₀)' },
+  { id: 'methane', label: 'Metano (CH₄)', alt: 'ch4' },
+  { id: 'neon', label: 'Neônio (Ne)' },
+  { id: 'nitrogen', label: 'Nitrogênio (N₂)', alt: 'n2' },
+  { id: 'oxygen', label: 'Oxigênio (O₂)', alt: 'o2' },
+  { id: 'propane', label: 'Propano (C₃H₈)' },
 ];
 
 // 12 Ideal Gases matching CATT3 screenshot
@@ -122,7 +122,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute top-full left-0 z-50 bg-[#f0f0f0] border border-[#7a7a7a] shadow-xl text-slate-900 font-sans text-[12px] select-none py-0.5 min-w-[170px]"
+      className="absolute top-full left-0 z-50 bg-[#f0f0f0] border border-[#7a7a7a] shadow-xl text-slate-900 font-sans text-[12px] select-none py-0.5 min-w-[185px]"
       style={{
         boxShadow: '2px 3px 8px rgba(0,0,0,0.3)',
       }}
@@ -136,7 +136,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
         <span className="w-5 flex items-center justify-center shrink-0">
           {currentCategory === 'WATER' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
         </span>
-        <span className="grow">Water</span>
+        <span className="grow">Água e Vapor</span>
       </button>
 
       {/* 2. Refrigerants (Flyout Submenu with 2 Columns) */}
@@ -155,7 +155,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
           <span className="w-5 flex items-center justify-center shrink-0">
             {currentCategory === 'REFRIGERANTS' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
           </span>
-          <span className="grow">Refrigerants</span>
+          <span className="grow">Refrigerantes</span>
           <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-80" />
         </button>
 
@@ -218,14 +218,14 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
           <span className="w-5 flex items-center justify-center shrink-0">
             {currentCategory === 'CRYOGENICS' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
           </span>
-          <span className="grow">Cryogenics</span>
+          <span className="grow">Criogênicos</span>
           <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-80" />
         </button>
 
         {/* Flyout 1-column menu for Cryogenics */}
         {activeSubmenu === 'cryogenics' && (
           <div
-            className="absolute top-0 left-full -ml-0.5 bg-[#f0f0f0] border border-[#7a7a7a] shadow-xl text-slate-900 text-[12px] py-0.5 min-w-[120px] z-50"
+            className="absolute top-0 left-full -ml-0.5 bg-[#f0f0f0] border border-[#7a7a7a] shadow-xl text-slate-900 text-[12px] py-0.5 min-w-[155px] z-50"
             style={{
               boxShadow: '2px 3px 8px rgba(0,0,0,0.3)',
             }}
@@ -255,7 +255,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
         <span className="w-5 flex items-center justify-center shrink-0">
           {currentCategory === 'AIR' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
         </span>
-        <span className="grow">Air</span>
+        <span className="grow">Ar (Tabela A-17)</span>
       </button>
 
       {/* 5. Ideal Gases (Flyout Submenu with 1 Column) */}
@@ -274,7 +274,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
           <span className="w-5 flex items-center justify-center shrink-0">
             {currentCategory === 'IDEAL_GASES' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
           </span>
-          <span className="grow">Ideal Gases</span>
+          <span className="grow">Gases Ideais</span>
           <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-80" />
         </button>
 
@@ -311,10 +311,10 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
         <span className="w-5 flex items-center justify-center shrink-0">
           {currentCategory === 'COMPRESSIBILITY' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
         </span>
-        <span className="grow">Compressibility</span>
+        <span className="grow">Compressibilidade (Z)</span>
       </button>
 
-      {/* 7. Psychrometrics (Pychrometrics) */}
+      {/* 7. Psychrometrics */}
       <button
         onClick={() => handleItemClick('PSYCHROMETRICS', 'psychrometrics')}
         onMouseEnter={() => setActiveSubmenu(null)}
@@ -323,7 +323,7 @@ export const Catt3DesktopMenu: React.FC<Catt3DesktopMenuProps> = ({
         <span className="w-5 flex items-center justify-center shrink-0">
           {currentCategory === 'PSYCHROMETRICS' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
         </span>
-        <span className="grow">Pychrometrics</span>
+        <span className="grow">Psicrometria</span>
       </button>
     </div>
   );

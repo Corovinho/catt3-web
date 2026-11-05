@@ -29,7 +29,7 @@ function approxEq(a: number, b: number, tolerancePct: number = 2.0): boolean {
   return pct <= tolerancePct;
 }
 
-console.log('=== TESTE DE CASOS EXTREMOS E CONFERÊNCIA RIGOROSA ===\n');
+console.log('=== TESTE DE CASOS EXTREMOS E CONFERÊNCIA RIGOROSA - ENTROLAB ===\n');
 
 // 1. ÁGUA: LIMITES E CASOS DE BORDA
 console.log('1. TESTANDO ÁGUA:');
@@ -54,29 +54,23 @@ try {
   assert(false, 'Saturação da água por P', e.message);
 }
 
-// 1.4 Testes das novas combinações solicitadas: P & H, P & U, T & U, T & H
+// 1.4 Testes das combinações P & H, P & U, T & U, T & H
 try {
-  // P & H
   const wPH = WaterEngine.solveGeneral({ P_MPa: 1.0, h: 3051.6 });
   assert(approxEq(wPH.T, 300, 1.0), 'Entrada [P & H]: P=1 MPa, h=3051.6 -> T ~ 300°C', `T = ${wPH.T}`);
 
-  // P & U
   const wPU = WaterEngine.solveGeneral({ P_MPa: 1.0, u: 2793.7 });
   assert(approxEq(wPU.T, 300, 1.0), 'Entrada [P & U]: P=1 MPa, u=2793.7 -> T ~ 300°C', `T = ${wPU.T}`);
 
-  // T & H
   const wTH = WaterEngine.solveGeneral({ T: 300, h: 3051.6 });
   assert(approxEq(wTH.P_MPa, 1.0, 1.0), 'Entrada [T & H]: T=300°C, h=3051.6 -> P ~ 1.0 MPa', `P = ${wTH.P_MPa}`);
 
-  // T & U
   const wTU = WaterEngine.solveGeneral({ T: 300, u: 2793.7 });
   assert(approxEq(wTU.P_MPa, 1.0, 1.0), 'Entrada [T & U]: T=300°C, u=2793.7 -> P ~ 1.0 MPa', `P = ${wTU.P_MPa}`);
 
-  // T & U em mistura saturada (100°C, u = 1462.5 -> x ~ 0.5)
   const wTUMix = WaterEngine.solveGeneral({ T: 100, u: 1462.5 });
   assert(approxEq(wTUMix.x ?? 0, 0.5, 2.0), 'Entrada [T & U] Mistura: T=100°C, u=1462.5 -> x ~ 0.5', `x = ${wTUMix.x}`);
 
-  // P & U em mistura saturada (0.1014 MPa, u = 1462.5 -> x ~ 0.5)
   const wPUMix = WaterEngine.solveGeneral({ P_MPa: 0.1014, u: 1462.5 });
   assert(approxEq(wPUMix.x ?? 0, 0.5, 2.0), 'Entrada [P & U] Mistura: P=0.1014 MPa, u=1462.5 -> x ~ 0.5', `x = ${wPUMix.x}`);
 } catch (e: any) {
@@ -95,7 +89,6 @@ for (const fid of fluids) {
     const T_mid = row.T;
     const P_mid = row.P; // bar
 
-    // 2.1 Mistura Saturada (x = 0.5) - Round-trip em todas as entradas: T&X, P&X, T&V, P&V, T&U, P&U, T&H, P&H, T&S, P&S
     const stMix = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'x', secondVal: 0.5 });
     const mixPX = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'x', secondVal: 0.5 });
     const mixTV = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_mid, secondProp: 'v', secondVal: stMix.v });
@@ -114,7 +107,6 @@ for (const fid of fluids) {
       }
     }
 
-    // 2.2 Vapor Superaquecido (T = T_mid + 35°C, P = P_mid) - Round-trip em T&P, P&H, P&U, P&S, P&V, T&H, T&U, T&S, T&V
     const T_sup = T_mid + 35;
     const stSup = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sup, secondProp: 'P', secondVal: P_mid });
     const supPH = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'P', value: P_mid, secondProp: 'h', secondVal: stSup.h });
@@ -140,7 +132,6 @@ for (const fid of fluids) {
       console.error(`Erro superaquecido round-trip em ${fid}`);
     }
 
-    // 2.3 Líquido Comprimido (T = Math.max(-271.5, T_mid - 15), P = P_mid * 1.5) - Round-trip em P&H, P&U
     const T_sub = Math.max(-271.5, T_mid - 15);
     const P_sub = P_mid * 1.5;
     const stSub = RefrigerantEngine.solve(fid, { mode: 'GENERAL', type: 'T', value: T_sub, secondProp: 'P', secondVal: P_sub });
@@ -157,7 +148,7 @@ for (const fid of fluids) {
 }
 assert(
   fluidErrors === 0,
-  `Todos os 31 fluidos (20 refrigerantes + 11 criogênicos) validados nas 11 combinações (T&P, P&H, P&U, T&U, T&H, etc.) em mistura, vapor superaquecido e líquido comprimido`,
+  `Todos os 31 fluidos (20 refrigerantes + 11 criogênicos) validados nas 11 combinações em mistura, vapor superaquecido e líquido comprimido`,
   `Erros: ${fluidErrors}`
 );
 
@@ -176,7 +167,6 @@ try {
   const p4 = PsychrometricsEngine.solve({ Tdb: 25, inputMode: 'w', value: 0.012 });
   assert(p4.RH !== undefined && p4.RH > 50 && p4.RH < 70, 'Psicrometria modo w', `RH = ${p4.RH}`);
 
-  // Extremos
   const pSat = PsychrometricsEngine.solve({ Tdb: 30, inputMode: 'RH', value: 100 });
   assert(approxEq(pSat.Twb || 0, 30, 0.1), 'Psicrometria 100% UR: Twb == Tdb', `Twb = ${pSat.Twb}`);
 
@@ -186,28 +176,67 @@ try {
   assert(false, 'Psicrometria', e.message);
 }
 
-// 4. GASES IDEAIS: TODOS OS 12 GASES EM FAIXAS VARIADAS
-console.log('\n4. TESTANDO GASES IDEAIS:');
+// 4. GASES IDEAIS: TODOS OS 12 GASES + CP, CV, K, RHO + AS 7 COMBINAÇÕES CATT3
+console.log('\n4. TESTANDO GASES IDEAIS (12 ESPÉCIES + CP/CV/K/RHO + 7 ENTRADAS INVERSAS):');
 const gases = Object.keys(GAS_CATALOG);
 let gasErrors = 0;
 for (const gid of gases) {
   try {
-    const gLow = IdealGasEngine.solve(gid, 0, 1); // 0 °C, 1 bar
-    const gHigh = IdealGasEngine.solve(gid, 800, 5); // 800 °C, 5 bar
+    const gas = GAS_CATALOG[gid];
+    const R_spec = 8.314462618 / gas.M;
+    const gLow = IdealGasEngine.solve(gid, 0, 1);
+    const gHigh = IdealGasEngine.solve(gid, 800, 5);
     if (isNaN(gLow.h) || isNaN(gHigh.h) || isNaN(gLow.v) || isNaN(gHigh.v)) gasErrors++;
-  } catch {
+
+    // Verificar cp, cv, k_ratio, density e base molar
+    if (
+      !gHigh.cp ||
+      !gHigh.cv ||
+      !gHigh.k_ratio ||
+      !gHigh.density ||
+      !approxEq(gHigh.cp - gHigh.cv, R_spec, 0.2) ||
+      !approxEq(gHigh.k_ratio, gHigh.cp / gHigh.cv, 0.1) ||
+      !approxEq(gHigh.density, 1 / gHigh.v, 0.1) ||
+      !approxEq(gHigh.h_mole || 0, gHigh.h * gas.M, 0.1)
+    ) {
+      gasErrors++;
+      console.error(`Erro nas propriedades cp/cv/k/density para ${gid}:`, gHigh);
+    }
+
+    // Round-trip nas 7 combinações do CATT3 (TP, uP, hP, s0P, sP, vP, Tv)
+    const ref = IdealGasEngine.solve(gid, 350, 3.5);
+    const rTP = IdealGasEngine.solveByInput(gid, 'TP', 350, 3.5);
+    const ruP = IdealGasEngine.solveByInput(gid, 'uP', ref.u, 3.5);
+    const rhP = IdealGasEngine.solveByInput(gid, 'hP', ref.h, 3.5);
+    const rs0P = IdealGasEngine.solveByInput(gid, 's0P', ref.s0 ?? 0, 3.5);
+    const rsP = IdealGasEngine.solveByInput(gid, 'sP', ref.s, 3.5);
+    const rvP = IdealGasEngine.solveByInput(gid, 'vP', ref.v, 3.5);
+    const rTv = IdealGasEngine.solveByInput(gid, 'Tv', 350, ref.v);
+
+    for (const solved of [rTP, ruP, rhP, rs0P, rsP, rvP, rTv]) {
+      if (Math.abs(solved.T - 350) > 0.25 || !approxEq(solved.P_MPa, 0.35, 0.2)) {
+        gasErrors++;
+        console.error(`Erro round-trip solveByInput em ${gid}: obtido T=${solved.T}, P_MPa=${solved.P_MPa}`);
+      }
+    }
+  } catch (err) {
     gasErrors++;
+    console.error(`Exceção em gás ideal ${gid}:`, err);
   }
 }
-assert(gasErrors === 0, 'Todos os 12 gases ideais calculados com sucesso a 0°C e 800°C', `Erros: ${gasErrors}`);
+assert(
+  gasErrors === 0,
+  'Todos os 12 gases ideais validados com cp, cv, k, densidade, base molar e round-trip nas 7 entradas (TP, uP, hP, s0P, sP, vP, Tv)',
+  `Erros: ${gasErrors}`
+);
 
 // 5. COMPRESSIBILIDADE: TODAS AS FAIXAS DE Tr E Pr
 console.log('\n5. TESTANDO COMPRESSIBILIDADE:');
 try {
-  const zLow = CompressibilityEngine.solve(0.2, 0.8, 0.05); // Pr=0.2, Tr=0.8
+  const zLow = CompressibilityEngine.solve(0.2, 0.8, 0.05);
   assert(zLow.Z > 0.8 && zLow.Z < 1.05, 'Z subcrítico (Tr=0.8, Pr=0.2) consistente', `Z = ${zLow.Z}`);
 
-  const zHigh = CompressibilityEngine.solve(5.0, 2.5, 0.2); // Pr=5.0, Tr=2.5
+  const zHigh = CompressibilityEngine.solve(5.0, 2.5, 0.2);
   assert(zHigh.Z > 0.9 && zHigh.Z < 1.4, 'Z supercrítico (Tr=2.5, Pr=5.0) consistente', `Z = ${zHigh.Z}`);
 } catch (e: any) {
   assert(false, 'Compressibilidade', e.message);
@@ -218,27 +247,27 @@ console.log('\n6. TESTANDO TODOS OS 5 SISTEMAS DE UNIDADES:');
 const unitSystems = ['SI', 'SI_KPA', 'SI_MOLE', 'BRITISH', 'BRITISH_MOLE'] as const;
 for (const sys of unitSystems) {
   const labels = UnitConverter.getUnitLabels(sys);
-  const pInternal = 0.5; // MPa
+  const pInternal = 0.5;
   const pUser = UnitConverter.fromInternalP(pInternal, labels.P);
   const pBack = UnitConverter.toInternalP(pUser, labels.P);
   assert(approxEq(pInternal, pBack, 0.01), `Sistema [${sys}]: Conversão de Pressão bidirecional perfeita`, `In: ${pInternal}, Back: ${pBack}`);
 
-  const tInternal = 150; // °C
+  const tInternal = 150;
   const tUser = UnitConverter.fromInternalT(tInternal, labels.T);
   const tBack = UnitConverter.toInternalT(tUser, labels.T);
   assert(approxEq(tInternal, tBack, 0.01), `Sistema [${sys}]: Conversão de Temperatura bidirecional perfeita`, `In: ${tInternal}, Back: ${tBack}`);
 
-  const hInternal = 2500; // kJ/kg
+  const hInternal = 2500;
   const hUser = UnitConverter.fromInternalEnergy(hInternal, labels.h, 18.015);
   const hBack = UnitConverter.toInternalEnergy(hUser, labels.h, 18.015);
   assert(approxEq(hInternal, hBack, 0.01), `Sistema [${sys}]: Conversão de Entalpia bidirecional perfeita`, `In: ${hInternal}, Back: ${hBack}`);
 
-  const sInternal = 6.5; // kJ/(kg·K)
+  const sInternal = 6.5;
   const sUser = UnitConverter.fromInternalEntropy(sInternal, labels.s, 18.015);
   const sBack = UnitConverter.toInternalEntropy(sUser, labels.s, 18.015);
   assert(approxEq(sInternal, sBack, 0.01), `Sistema [${sys}]: Conversão de Entropia bidirecional perfeita`, `In: ${sInternal}, Back: ${sBack}`);
 
-  const vInternal = 0.05; // m3/kg
+  const vInternal = 0.05;
   const vUser = UnitConverter.fromInternalV(vInternal, labels.v, 18.015);
   const vBack = UnitConverter.toInternalV(vUser, labels.v, 18.015);
   assert(approxEq(vInternal, vBack, 0.01), `Sistema [${sys}]: Conversão de Volume Específico bidirecional perfeita`, `In: ${vInternal}, Back: ${vBack}`);
@@ -281,7 +310,7 @@ for (const st1 of initialStates) {
         targetV2Linear: st1.v * 1.8,
       });
 
-      if (!curve || curve.path.length !== 21 || isNaN(curve.work) || isNaN(curve.heat) || isNaN(curve.state2.u) || isNaN(curve.state2.h)) {
+      if (!curve || curve.path.length !== 25 || !curve.substanceId || isNaN(curve.work) || isNaN(curve.heat) || isNaN(curve.state2.u) || isNaN(curve.state2.h)) {
         catProcErrors++;
         console.error(`Falha na curva de [${pType}] para ${st1.substanceName}`);
       }
@@ -292,7 +321,6 @@ for (const st1 of initialStates) {
           console.error(`Erro no estrangulamento [ISENTHALPIC] para ${st1.substanceName}`);
         }
       } else {
-        // Verificar Primeira Lei da Termodinâmica para sistemas fechados: q - w = u2 - u1
         const deltaU = curve.state2.u - curve.state1.u;
         const qMinusW = curve.heat - curve.work;
         if (Math.abs(qMinusW - deltaU) > 0.5) {
@@ -301,7 +329,6 @@ for (const st1 of initialStates) {
         }
       }
 
-      // Verificar invariantes do processo
       if (pType === 'ISOTHERMAL' && Math.abs(curve.state2.T - st1.T) > 0.5) catProcErrors++;
       if (pType === 'ISOBARIC' && Math.abs(curve.state2.P_MPa - st1.P_MPa) > 0.01) catProcErrors++;
       if (pType === 'ISOCHORIC' && !approxEq(curve.state2.v, st1.v, 2.0)) catProcErrors++;
@@ -320,14 +347,71 @@ for (const st1 of initialStates) {
   );
 }
 
+// 8. PROPRIEDADES FINAIS FLEXÍVEIS NOS PROCESSOS + ATRAVESSAMENTO DO DOMO BIFÁSICO
+console.log('\n8. TESTANDO PROPRIEDADES FINAIS FLEXÍVEIS (P2, T2, v2, h2, s2) E DOMO BIFÁSICO:');
+try {
+  // 8.1 Vaporização isobárica cruzando o domo inteiro (1 MPa: 100°C líquido comprimido -> 250°C vapor superaquecido)
+  const wSub1 = WaterEngine.solveGeneral({ P_MPa: 1.0, T: 100 });
+  const isoPDomeCross = ProcessPlotter.calculateProcess({
+    state1: wSub1,
+    type: 'ISOBARIC',
+    targetProperty: 'T',
+    targetValue: 250,
+  });
+  const hasTwoPhaseMidpoints = isoPDomeCross.path.some((pt) => pt.x !== undefined && pt.x > 0.05 && pt.x < 0.95);
+  assert(
+    hasTwoPhaseMidpoints && approxEq(isoPDomeCross.state2.T, 250, 0.5),
+    'Isobárico cruzando o domo de saturação interpola suavemente pela região bifásica (por entalpia h)'
+  );
+
+  // 8.2 Isobárico parando dentro do domo por h2, s2 e v2
+  const wMixTarget = WaterEngine.solveGeneral({ P_MPa: 1.0, x: 0.6 });
+  const isoPByH = ProcessPlotter.calculateProcess({ state1: wSub1, type: 'ISOBARIC', targetProperty: 'h', targetValue: wMixTarget.h });
+  const isoPByS = ProcessPlotter.calculateProcess({ state1: wSub1, type: 'ISOBARIC', targetProperty: 's', targetValue: wMixTarget.s });
+  const isoPByV = ProcessPlotter.calculateProcess({ state1: wSub1, type: 'ISOBARIC', targetProperty: 'v', targetValue: wMixTarget.v });
+  assert(approxEq(isoPByH.state2.x ?? 0, 0.6, 1.5), 'Isobárico com alvo h2 resolve mistura bifásica x=0.6', `x=${isoPByH.state2.x}`);
+  assert(approxEq(isoPByS.state2.x ?? 0, 0.6, 1.5), 'Isobárico com alvo s2 resolve mistura bifásica x=0.6', `x=${isoPByS.state2.x}`);
+  assert(approxEq(isoPByV.state2.x ?? 0, 0.6, 1.5), 'Isobárico com alvo v2 resolve mistura bifásica x=0.6', `x=${isoPByV.state2.x}`);
+
+  // 8.3 Isentrópico com alvo T2 e v2 (Água, Ar e CO2)
+  const wSup1 = WaterEngine.solveGeneral({ P_MPa: 3.0, T: 400 });
+  const isoSWaterT = ProcessPlotter.calculateProcess({ state1: wSup1, type: 'ISENTROPIC', targetProperty: 'T', targetValue: 250 });
+  const isoSWaterV = ProcessPlotter.calculateProcess({ state1: wSup1, type: 'ISENTROPIC', targetProperty: 'v', targetValue: isoSWaterT.state2.v });
+  assert(approxEq(isoSWaterT.state2.s, wSup1.s, 0.5) && approxEq(isoSWaterT.state2.T, 250, 1.0), 'Isentrópico Água por T2 mantém s=cte');
+  assert(approxEq(isoSWaterV.state2.P_MPa, isoSWaterT.state2.P_MPa, 1.5), 'Isentrópico Água por v2 coincide com T2');
+
+  const airSt1 = AirEngine.solve('T', 300, 1.0); // 26.85 °C, 1 bar
+  const isoSAirT = ProcessPlotter.calculateProcess({ state1: airSt1, type: 'ISENTROPIC', targetProperty: 'T', targetValue: 226.85 }); // 500 K
+  const isoSAirV = ProcessPlotter.calculateProcess({ state1: airSt1, type: 'ISENTROPIC', targetProperty: 'v', targetValue: isoSAirT.state2.v });
+  assert(approxEq(isoSAirT.state2.s, airSt1.s, 0.5), 'Isentrópico Ar (Tabela A-17) por T2 mantém s=cte');
+  assert(approxEq(isoSAirV.state2.T, 226.85, 1.0), 'Isentrópico Ar (Tabela A-17) por v2 resolve T2=226.85°C');
+
+  const co2St1 = IdealGasEngine.solve('co2', 100, 1.5);
+  const isoSCo2T = ProcessPlotter.calculateProcess({ state1: co2St1, type: 'ISENTROPIC', targetProperty: 'T', targetValue: 250 });
+  assert(approxEq(isoSCo2T.state2.s, co2St1.s, 0.5), 'Isentrópico CO2 (Shomate) por T2 mantém s=cte');
+
+  // 8.4 Politrópico por v2 e T2 + Isocórico por T2 + Isotérmico por v2 e s2
+  const polyByV = ProcessPlotter.calculateProcess({ state1: airSt1, type: 'POLYTROPIC', targetProperty: 'v', targetValue: airSt1.v * 0.5, polytropicN: 1.3 });
+  const polyByT = ProcessPlotter.calculateProcess({ state1: airSt1, type: 'POLYTROPIC', targetProperty: 'T', targetValue: polyByV.state2.T, polytropicN: 1.3 });
+  assert(approxEq(polyByT.state2.P_MPa, polyByV.state2.P_MPa, 1.0), 'Politrópico por T2 coincide com Politrópico por v2');
+
+  const isoVByT = ProcessPlotter.calculateProcess({ state1: airSt1, type: 'ISOCHORIC', targetProperty: 'T', targetValue: 326.85 });
+  assert(approxEq(isoVByT.state2.v, airSt1.v, 0.5) && approxEq(isoVByT.work, 0, 0.01), 'Isocórico por T2 mantém v=cte e w=0');
+
+  const isoTByV = ProcessPlotter.calculateProcess({ state1: wSup1, type: 'ISOTHERMAL', targetProperty: 'v', targetValue: wSup1.v * 2.0 });
+  const isoTByS = ProcessPlotter.calculateProcess({ state1: wSup1, type: 'ISOTHERMAL', targetProperty: 's', targetValue: isoTByV.state2.s });
+  assert(approxEq(isoTByS.state2.P_MPa, isoTByV.state2.P_MPa, 1.0), 'Isotérmico por s2 coincide com Isotérmico por v2');
+} catch (e: any) {
+  assert(false, 'Propriedades finais flexíveis nos processos', e.message);
+}
+
 console.log('\n================================================================');
 console.log(`TOTAL DE ASSERTIVAS: ${totalTests}`);
 console.log(`PASSOU: ${passedTests}`);
 console.log(`FALHOU: ${failedTests}`);
 console.log('================================================================');
 if (failedTests === 0) {
-  console.log('\n>>> APROVADO! O APLICATIVO ESTÁ 100% BLINDADO E CONFIÁVEL! <<<');
+  console.log('\n>>> APROVADO! O ENTROLAB ESTÁ 100% BLINDADO E CONFIÁVEL! <<<');
 } else {
   process.exit(1);
 }
-

@@ -40,8 +40,6 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
     }
   }, [isOpen, unitSystem]);
 
-  if (!isOpen) return null;
-
   const handleOK = () => {
     let propVal = 0;
     if (inputType === 'T') {
@@ -81,6 +79,23 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
     });
     onClose();
   };
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs font-mono">

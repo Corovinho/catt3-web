@@ -114,6 +114,8 @@ export const GAS_CATALOG: Record<string, GasSpecies> = {
   }
 };
 
+export type IdealGasInputMode = 'TP' | 'uP' | 'hP' | 's0P' | 'sP' | 'vP' | 'Tv';
+
 export class IdealGasEngine {
   static readonly R_UNIVERSAL = 8.314462618; // kJ/(kmol·K)
 
@@ -122,6 +124,10 @@ export class IdealGasEngine {
     const T_K = Math.max(200, Math.min(2500, T_C + 273.15));
     const t = T_K / 1000;
     const [A, B, C, D, E, F, G] = gas.shomate;
+
+    // Specific heat Cp in J/(mol·K) -> kJ/(kg·K)
+    const Cp_molar = A + B * t + C * t * t + D * Math.pow(t, 3) + E / (t * t);
+    const cp = Cp_molar / gas.M;
 
     // Enthalpy in kJ/mol -> convert to kJ/kg
     const H_molar = (A * t + (B * t * t) / 2 + (C * Math.pow(t, 3)) / 3 + (D * Math.pow(t, 4)) / 4 - E / t + F); // kJ/mol
@@ -133,16 +139,20 @@ export class IdealGasEngine {
 
     // Gas constant R_gas = R_u / M (kJ/(kg·K))
     const R_gas = this.R_UNIVERSAL / gas.M;
+    const cv = cp - R_gas;
+    const k_ratio = cv > 0 ? cp / cv : 1.4;
 
     // Internal energy u = h - R*T
     const u = h - R_gas * T_K;
 
     // Specific volume v = R*T / P (where P in kPa = P_bar * 100)
-    const P_kPa = P_bar * 100;
+    const safePBar = Math.max(1e-6, P_bar);
+    const P_kPa = safePBar * 100;
     const v = (R_gas * T_K) / P_kPa;
+    const density = 1 / v;
 
-    // Total entropy s = s0 - R_gas * ln(P / P0), P0 = 1 bar
-    const s = s0 - R_gas * Math.log(P_bar);
+    // Total entropy s = s0 - R_gas * ln(P / P0), P0 = 1 bar (0.1 MPa)
+    const s = s0 - R_gas * Math.log(safePBar);
 
     return {
       id: Math.random().toString(36).substring(2, 9),
@@ -152,17 +162,62 @@ export class IdealGasEngine {
       substanceName: `${gas.name} (${gas.formula})`,
       category: 'IDEAL_GASES',
       mode: 'GENERAL',
-      T: T_C,
-      P: P_bar,
-      P_MPa: P_bar * 0.1,
+      T: T_K - 273.15,
+      P: safePBar,
+      P_MPa: safePBar * 0.1,
       v,
       u,
       h,
       s,
       phase: 'Gas',
       s0,
+      P0: 0.1,
       molarMass: gas.M,
-      gasConstant: R_gas
+      gasConstant: R_gas,
+      cp,
+      cv,
+      k_ratio,
+      density,
+      h_mole: h * gas.M,
+      u_mole: u * gas.M,
+      s0_mole: s0 * gas.M,
+      s_mole: s * gas.M,
     };
+  }
+
+  static solveByInput(
+    gasId: string,
+    mode: IdealGasInputMode,
+    val1: number,
+    val2: number
+  ): ThermodynamicState {
+    const gas = GAS_CATALOG[gasId] || GAS_CATALOG['co2'];
+    const R_gas = this.R_UNIVERSAL / gas.M;
+
+    if (mode === 'TP') {
+      return this.solve(gasId, val1, val2);
+    }
+    if (mode === 'vP') {
+      const T_K = (val2 * 100 * val1) / R_gas;
+      return this.solve(gasId, T_K - 273.15, val2);
+    }
+    if (mode === 'Tv') {
+      const T_K = Math.max(200, Math.min(2500, val1 + 273.15));
+      const P_bar = (R_gas * T_K) / (Math.max(1e-8, val2) * 100);
+      return this.solve(gasId, T_K - 273.15, P_bar);
+    }
+
+    const propKey: 'u' | 'h' | 's0' | 's' =
+      mode === 'uP' ? 'u' : mode === 'hP' ? 'h' : mode === 's0P' ? 's0' : 's';
+    let Tlow = -73.15;
+    let Thigh = 2226.85;
+    for (let i = 0; i < 55; i++) {
+      const Tmid = 0.5 * (Tlow + Thigh);
+      const stMid = this.solve(gasId, Tmid, val2);
+      const curVal = (stMid[propKey] as number) ?? 0;
+      if (curVal < val1) Tlow = Tmid;
+      else Thigh = Tmid;
+    }
+    return this.solve(gasId, 0.5 * (Tlow + Thigh), val2);
   }
 }

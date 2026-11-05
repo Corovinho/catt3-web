@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Check, Award, BookOpen, Layers } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, Check, Award, BookOpen } from 'lucide-react';
 
 interface AboutDialogProps {
   isOpen: boolean;
@@ -7,6 +7,18 @@ interface AboutDialogProps {
 }
 
 export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -17,10 +29,10 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
           <div className="flex items-center gap-2">
             <Award className="w-4 h-4 text-black" />
             <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-              Sobre o CATT3 (Computer-Aided Thermodynamic Tables)
+              Sobre o EntroLab — Tabelas Termodinâmicas
             </span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
@@ -28,18 +40,19 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
         {/* Content Body */}
         <div className="border border-slate-400 bg-white p-4 space-y-3 text-xs">
           <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
-            <div className="w-12 h-12 bg-black text-white flex items-center justify-center font-bold text-lg border border-slate-900 shrink-0">
-              CATT3
+            <div className="w-12 h-12 bg-black text-white flex flex-col items-center justify-center font-bold text-[10px] leading-tight tracking-tight border border-slate-900 shrink-0">
+              <span>ENTRO</span>
+              <span>LAB</span>
             </div>
             <div>
               <h4 className="font-bold text-sm text-slate-950 uppercase">
-                Computer-Aided Thermodynamic Tables 3
+                EntroLab — Tabelas Termodinâmicas Computacionais
               </h4>
               <p className="text-[11px] text-slate-600 font-bold">
-                Versão de teste 1 / Professor Luiz Mariano Pereira — Padrão Didático e Científico para Engenharia
+                Professor Luiz Mariano Pereira — Padrão Didático e Científico para Engenharia
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Desenvolvido como extensão moderna e multiplataforma do software CATT3 clássico de Richard E. Sonntag e Claus Borgnakke.
+                Desenvolvido com fidelidade ao padrão clássico CATT3 (Computer-Aided Thermodynamic Tables 3, Sonntag &amp; Borgnakke).
               </p>
             </div>
           </div>
@@ -58,13 +71,13 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
                 <strong>Refrigerantes e Criogênicos:</strong> Catálogo completo com 20 refrigerantes e 11 criogênicos com curvas de saturação e propriedades de estado líquido/vapor.
               </li>
               <li>
-                <strong>Tabela de Ar:</strong> Calores específicos variáveis dependentes da temperatura (Moran & Shapiro / Çengel & Boles A-17/A-22).
+                <strong>Tabela de Ar:</strong> Calores específicos variáveis dependentes da temperatura (Moran &amp; Shapiro / Çengel &amp; Boles A-17/A-22).
               </li>
               <li>
                 <strong>Gases Ideais:</strong> 12 espécies moleculares calculadas via polinômios termodinâmicos <em>NIST Shomate</em>.
               </li>
               <li>
-                <strong>Compressibilidade:</strong> Equações generalizadas de <em>Lee-Kesler / Pitzer</em> com fator acêntrico $\omega$.
+                <strong>Compressibilidade:</strong> Equações generalizadas de <em>Lee-Kesler / Pitzer</em> com fator acêntrico ω.
               </li>
               <li>
                 <strong>Psicrometria:</strong> Equações psicrométricas do <em>ASHRAE Handbook of Fundamentals</em>.
@@ -73,7 +86,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
           </div>
 
           <div className="bg-slate-50 border border-slate-300 p-2 text-[10px] text-slate-600 font-mono">
-            <strong>Compatibilidade:</strong> 100% dos recursos do software CATT3 original (modos de cálculo, conversor de 4 sistemas de unidades, traçador de 9 processos termodinâmicos, exportação CSV e gráficos interativos T-s e P-v).
+            <strong>Compatibilidade:</strong> 100% dos recursos do padrão CATT3 (modos de cálculo completos, conversor de 5 sistemas de unidades, traçador de 9 processos termodinâmicos, exportação CSV e gráficos interativos T-s e P-v).
           </div>
         </div>
 

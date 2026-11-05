@@ -20,8 +20,6 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
   const [valPr, setValPr] = useState<string>('1.5');
   const [valOmega, setValOmega] = useState<string>('0.00');
 
-  if (!isOpen) return null;
-
   const handleOK = () => {
     const tr = parseFloat(valTr);
     if (isNaN(tr) || tr <= 0) return alert('Insira uma Temperatura Reduzida válida (Tr > 0).');
@@ -35,6 +33,23 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
     onCalculate({ Tr: tr, Pr: pr, omega: w });
     onClose();
   };
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs font-mono">

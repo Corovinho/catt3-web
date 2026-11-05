@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProcessType, ProcessCurve, ThermodynamicState, UnitSystem } from '../types/thermo';
 import { ProcessPlotter } from '../engine/processPlotter';
 import { UnitConverter } from '../engine/units';
@@ -14,6 +14,8 @@ interface ProcessModalProps {
   onAddStateToLog: (st: ThermodynamicState) => void;
 }
 
+type TargetPropKey = 'P' | 'T' | 'v' | 'h' | 's';
+
 const PROCESS_LIST: { type: ProcessType; labelPt: string; formula: string; desc: string }[] = [
   { type: 'ISOTHERMAL', labelPt: 'Temperatura Constante', formula: 'T = cte', desc: 'Processo isotérmico' },
   { type: 'ISOBARIC', labelPt: 'Pressão Constante', formula: 'P = cte', desc: 'Processo isobárico' },
@@ -25,6 +27,18 @@ const PROCESS_LIST: { type: ProcessType; labelPt: string; formula: string; desc:
   { type: 'POLYTROPIC', labelPt: 'Processo Politrópico', formula: 'P · vⁿ = cte', desc: 'Expansão/compressão com expoente politrópico n' },
   { type: 'LINEAR_PV', labelPt: 'Pressão Linear em Volume', formula: 'P = a + b·v', desc: 'Êmbolo com mola / deformação linear' },
 ];
+
+const ALLOWED_TARGETS: Record<ProcessType, TargetPropKey[]> = {
+  ISOBARIC: ['T', 'v', 'h', 's'],
+  ISOTHERMAL: ['P', 'v', 's'],
+  ISOCHORIC: ['P', 'T'],
+  ISENTROPIC: ['P', 'T', 'v'],
+  ISENERGIC: ['P', 'v'],
+  ISENTHALPIC: ['P'],
+  PINVERSE_V: ['P', 'v'],
+  POLYTROPIC: ['P', 'v', 'T'],
+  LINEAR_PV: ['P'],
+};
 
 export const ProcessModal: React.FC<ProcessModalProps> = ({
   isOpen,
@@ -38,17 +52,32 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedProcess, setSelectedProcess] = useState<ProcessType>('ISENTROPIC');
   const [selectedStateIdx, setSelectedStateIdx] = useState<number>(-1); // -1 = currentState
-  const [targetVal, setTargetVal] = useState<string>('0.5'); // default value
+  const [targetProp, setTargetProp] = useState<TargetPropKey>('P');
+  const [targetVal, setTargetVal] = useState<string>('0.5');
   const [polytropicN, setPolytropicN] = useState<string>('1.3');
   const [linearV2, setLinearV2] = useState<string>('0.2');
   const [calculatedCurve, setCalculatedCurve] = useState<ProcessCurve | null>(null);
 
-  if (!isOpen) return null;
-
   const units = UnitConverter.getUnitLabels(unitSystem);
 
+  useEffect(() => {
+    const allowed = ALLOWED_TARGETS[selectedProcess];
+    if (!allowed.includes(targetProp)) {
+      setTargetProp(allowed[0]);
+    }
+    setCalculatedCurve(null);
+  }, [selectedProcess, targetProp]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+      setCalculatedCurve(null);
+      setSelectedStateIdx(-1);
+    }
+  }, [isOpen]);
+
   // Active state 1
-  const state1: ThermodynamicState = selectedStateIdx === -1
+  const state1: ThermodynamicState = selectedStateIdx === -1 || !statesLog[selectedStateIdx]
     ? (currentState || {
         id: 'default',
         stateNumber: 1,
@@ -66,7 +95,31 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
         s: 7.361,
         phase: 'Saturated Vapor',
       })
-    : (statesLog[selectedStateIdx] || currentState!);
+    : statesLog[selectedStateIdx];
+
+  // Provide smart default value when entering step 3 or switching targetProp
+  useEffect(() => {
+    if (!isOpen) return;
+    const M = state1.molarMass;
+    if (targetProp === 'P') {
+      const pSuggested = UnitConverter.fromInternalP(state1.P_MPa * 2, units.P);
+      setTargetVal(pSuggested >= 10 ? pSuggested.toFixed(2) : pSuggested.toFixed(4));
+    } else if (targetProp === 'T') {
+      const tSuggested = UnitConverter.fromInternalT(state1.T + 100, units.T);
+      setTargetVal(tSuggested.toFixed(1));
+    } else if (targetProp === 'v') {
+      const vSuggested = UnitConverter.fromInternalV(state1.v * 1.5, units.v, M);
+      setTargetVal(vSuggested.toFixed(4));
+    } else if (targetProp === 'h') {
+      const hSuggested = UnitConverter.fromInternalEnergy(state1.h + 200, units.h, M);
+      setTargetVal(hSuggested.toFixed(1));
+    } else if (targetProp === 's') {
+      const sSuggested = UnitConverter.fromInternalEntropy(state1.s + 0.5, units.s, M);
+      setTargetVal(sSuggested.toFixed(3));
+    }
+    const vLinSuggested = UnitConverter.fromInternalV(state1.v * 1.5, units.v, M);
+    setLinearV2(vLinSuggested.toFixed(4));
+  }, [targetProp, selectedProcess, selectedStateIdx, unitSystem, isOpen]);
 
   const handleCalculateAndPlot = () => {
     const rawVal = parseFloat(targetVal);
@@ -76,22 +129,27 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
     }
 
     try {
-      let targetProp: 'P' | 'T' | 'v' | 's' | 'h' = 'P';
+      const M = state1.molarMass;
       let internalTarget = rawVal;
 
-      if (selectedProcess === 'ISOBARIC') {
-        targetProp = 'T';
-        internalTarget = UnitConverter.toInternalT(rawVal, units.T);
-      } else {
-        // P in MPa
-        targetProp = 'P';
+      if (targetProp === 'P') {
+        if (rawVal <= 0) return alert('A pressão final deve ser maior que zero.');
         internalTarget = UnitConverter.toInternalP(rawVal, units.P);
+      } else if (targetProp === 'T') {
+        internalTarget = UnitConverter.toInternalT(rawVal, units.T);
+      } else if (targetProp === 'v') {
+        if (rawVal <= 0) return alert('O volume específico final deve ser maior que zero.');
+        internalTarget = UnitConverter.toInternalV(rawVal, units.v, M);
+      } else if (targetProp === 'h') {
+        internalTarget = UnitConverter.toInternalEnergy(rawVal, units.h, M);
+      } else if (targetProp === 's') {
+        internalTarget = UnitConverter.toInternalEntropy(rawVal, units.s, M);
       }
 
       const nVal = parseFloat(polytropicN) || 1.3;
       const rawV2Lin = parseFloat(linearV2);
-      const v2Lin = !isNaN(rawV2Lin)
-        ? UnitConverter.toInternalV(rawV2Lin, units.v, state1.molarMass)
+      const v2Lin = !isNaN(rawV2Lin) && rawV2Lin > 0
+        ? UnitConverter.toInternalV(rawV2Lin, units.v, M)
         : (state1.v * 1.5);
 
       const curve = ProcessPlotter.calculateProcess({
@@ -120,18 +178,49 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
     setCalculatedCurve(null);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter' && (e.target as HTMLElement)?.tagName !== 'SELECT') {
+        e.preventDefault();
+        if (step < 3) setStep((prev) => (Math.min(3, prev + 1) as 1 | 2 | 3));
+        else if (!calculatedCurve) handleCalculateAndPlot();
+        else handleFinish();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
+
+  const allowedTargets = ALLOWED_TARGETS[selectedProcess];
+
+  const getTargetLabel = (prop: TargetPropKey) => {
+    switch (prop) {
+      case 'P': return `Pressão Final (P₂) [${units.P}]`;
+      case 'T': return `Temperatura Final (T₂) [${units.T}]`;
+      case 'v': return `Volume Específico Final (v₂) [${units.v}]`;
+      case 'h': return `Entalpia Final (h₂) [${units.h}]`;
+      case 's': return `Entropia Final (s₂) [${units.s}]`;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs font-mono select-none">
       <div className="bg-[#f0f0f0] border-2 border-slate-900 max-w-xl w-full p-4 sm:p-5 shadow-2xl text-slate-900 space-y-4">
-        {/* Title Bar matching CATT3 TfPlotProcessWiz */}
+        {/* Title Bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-black" />
             <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-              Traçar Processo Termodinâmico (Plot Process)
+              Traçar Processo Termodinâmico
             </span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
@@ -198,14 +287,14 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
               <select
                 value={selectedStateIdx}
                 onChange={(e) => setSelectedStateIdx(Number(e.target.value))}
-                className="w-full border border-slate-400 bg-white text-slate-900 px-2 py-1.5 text-xs font-mono font-bold"
+                className="w-full border border-slate-400 bg-white text-slate-900 px-2 py-1.5 text-xs font-mono font-bold cursor-pointer"
               >
                 <option value={-1}>
                   Estado Ativo Atual ({state1.substanceName})
                 </option>
                 {statesLog.map((st, i) => (
                   <option key={st.id} value={i}>
-                    #{i + 1} - {st.substanceName} | T = {st.T.toFixed(1)}°C, P = {st.P_MPa.toFixed(3)} MPa
+                    #{i + 1} - {st.substanceName} | T = {UnitConverter.fromInternalT(st.T, units.T).toFixed(1)} {units.T}, P = {UnitConverter.fromInternalP(st.P_MPa, units.P).toFixed(3)} {units.P}
                   </option>
                 ))}
               </select>
@@ -251,39 +340,63 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
           <div className="space-y-3">
             <div className="border border-slate-400 bg-white p-3 space-y-3">
               <span className="block font-bold text-xs uppercase text-slate-700 border-b border-slate-200 pb-1">
-                Definir Alvo para o Estado Final (2) ({PROCESS_LIST.find((p) => p.type === selectedProcess)?.formula}):
+                Definir Propriedade Conhecida do Estado Final (2) ({PROCESS_LIST.find((p) => p.type === selectedProcess)?.formula}):
               </span>
+
+              {allowedTargets.length > 1 && (
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                  <span className="text-xs font-bold text-slate-800">
+                    Propriedade Final Conhecida:
+                  </span>
+                  <select
+                    value={targetProp}
+                    onChange={(e) => {
+                      setTargetProp(e.target.value as TargetPropKey);
+                      setCalculatedCurve(null);
+                    }}
+                    className="border border-slate-400 bg-white text-slate-900 px-2 py-1 text-xs font-mono font-bold cursor-pointer"
+                  >
+                    {allowedTargets.map((prop) => (
+                      <option key={prop} value={prop}>
+                        {getTargetLabel(prop)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Input for target value */}
               <div className="flex items-center justify-between gap-2">
-                <span className="w-56 text-xs font-bold text-slate-900">
-                  {selectedProcess === 'ISOBARIC'
-                    ? `Temperatura Final (T₂) [${units.T}]:`
-                    : `Pressão Final (P₂) [${units.P}]:`}
+                <span className="w-64 text-xs font-bold text-slate-900">
+                  {getTargetLabel(targetProp)}:
                 </span>
                 <input
                   type="number"
                   step="any"
                   value={targetVal}
-                  onChange={(e) => setTargetVal(e.target.value)}
+                  onChange={(e) => {
+                    setTargetVal(e.target.value);
+                    setCalculatedCurve(null);
+                  }}
                   className="w-32 px-2 py-1 text-right text-xs border border-black bg-white font-mono font-bold outline-none"
-                  placeholder="Ex: 0.5"
                 />
               </div>
 
               {/* Extra input if Polytropic */}
               {selectedProcess === 'POLYTROPIC' && (
                 <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
-                  <span className="w-56 text-xs font-bold text-slate-900">
+                  <span className="w-64 text-xs font-bold text-slate-900">
                     Expoente Politrópico (n):
                   </span>
                   <input
                     type="number"
                     step="0.05"
                     value={polytropicN}
-                    onChange={(e) => setPolytropicN(e.target.value)}
+                    onChange={(e) => {
+                      setPolytropicN(e.target.value);
+                      setCalculatedCurve(null);
+                    }}
                     className="w-32 px-2 py-1 text-right text-xs border border-black bg-white font-mono font-bold outline-none"
-                    placeholder="Ex: 1.3"
                   />
                 </div>
               )}
@@ -291,16 +404,18 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
               {/* Extra input if Linear PV */}
               {selectedProcess === 'LINEAR_PV' && (
                 <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
-                  <span className="w-56 text-xs font-bold text-slate-900">
+                  <span className="w-64 text-xs font-bold text-slate-900">
                     Volume Final (v₂) [{units.v}]:
                   </span>
                   <input
                     type="number"
                     step="any"
                     value={linearV2}
-                    onChange={(e) => setLinearV2(e.target.value)}
+                    onChange={(e) => {
+                      setLinearV2(e.target.value);
+                      setCalculatedCurve(null);
+                    }}
                     className="w-32 px-2 py-1 text-right text-xs border border-black bg-white font-mono font-bold outline-none"
-                    placeholder="Ex: 0.2"
                   />
                 </div>
               )}
@@ -342,12 +457,12 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
           </div>
         )}
 
-        {/* Wizard Navigation Buttons matching CATT3 */}
+        {/* Wizard Navigation Buttons */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-300">
           <button
             onClick={() => setStep((prev) => (Math.max(1, prev - 1) as any))}
             disabled={step === 1}
-            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] disabled:opacity-40 border border-slate-600 text-slate-900 font-bold text-xs flex items-center gap-1 shadow-sm uppercase"
+            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] disabled:opacity-40 border border-slate-600 text-slate-900 font-bold text-xs flex items-center gap-1 shadow-sm uppercase cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>&lt;&lt; Voltar</span>
@@ -357,7 +472,7 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
             {step < 3 ? (
               <button
                 onClick={() => setStep((prev) => (Math.min(3, prev + 1) as any))}
-                className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1 shadow-sm uppercase"
+                className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1 shadow-sm uppercase cursor-pointer"
               >
                 <span>Avançar &gt;&gt;</span>
                 <ChevronRight className="w-4 h-4" />
@@ -365,7 +480,7 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
             ) : !calculatedCurve ? (
               <button
                 onClick={handleCalculateAndPlot}
-                className="px-5 py-1.5 bg-black hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+                className="px-5 py-1.5 bg-black hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Calcular e Traçar</span>
@@ -373,7 +488,7 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
             ) : (
               <button
                 onClick={handleFinish}
-                className="px-6 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+                className="px-6 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>Concluir</span>
@@ -382,7 +497,7 @@ export const ProcessModal: React.FC<ProcessModalProps> = ({
 
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border border-slate-600 text-slate-900 font-bold text-xs shadow-sm uppercase"
+              className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border border-slate-600 text-slate-900 font-bold text-xs shadow-sm uppercase cursor-pointer"
             >
               Cancelar
             </button>

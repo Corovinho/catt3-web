@@ -30,7 +30,7 @@ function approxEq(a: number, b: number, tolerancePct: number = 2.0): boolean {
 }
 
 console.log('================================================================');
-console.log('BATERIA DE TESTES DE CONFIABILIDADE TERMODINÂMICA - CATT3 WEB');
+console.log('BATERIA DE TESTES DE CONFIABILIDADE TERMODINÂMICA - ENTROLAB');
 console.log('================================================================\n');
 
 // -----------------------------------------------------------------------------

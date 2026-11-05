@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UnitSystem } from '../types/thermo';
 import { UnitConverter } from '../engine/units';
 import { Check, X, HelpCircle } from 'lucide-react';
@@ -54,16 +54,15 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
 }) => {
   const [inputType, setInputType] = useState<InputType>('1_TP');
   
-  // Field values (strings for inputs)
   const [valT, setValT] = useState<string>('100');
-  const [valP, setValP] = useState<string>('0.1'); // MPa default
+  const [valP, setValP] = useState<string>('0.1');
   const [valV, setValV] = useState<string>('0.5');
   const [valU, setValU] = useState<string>('2000');
   const [valH, setValH] = useState<string>('2675');
   const [valS, setValS] = useState<string>('7.35');
   const [valX, setValX] = useState<string>('1');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (initialT !== undefined && !isNaN(initialT)) setValT(Number(initialT.toFixed(2)).toString());
       if (initialP !== undefined && !isNaN(initialP)) setValP(Number(initialP.toFixed(4)).toString());
@@ -74,11 +73,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
     }
   }, [isOpen, initialT, initialP, initialV, initialU, initialH, initialS]);
 
-  if (!isOpen) return null;
-
   const units = UnitConverter.getUnitLabels(unitSystem);
 
-  // Determine which fields are enabled based on selected inputType
   const isTEnabled = inputType === '1_TP' || inputType === '2_TV' || inputType === '3_TU' || inputType === '4_TH' || inputType === '5_TS' || inputType === '6_TX';
   const isPEnabled = inputType === '1_TP' || inputType === '7_PV' || inputType === '8_PU' || inputType === '9_PH' || inputType === '10_PS' || inputType === '11_PX';
   const isVEnabled = inputType === '2_TV' || inputType === '7_PV';
@@ -92,37 +88,37 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
 
     if (isTEnabled) {
       const num = parseFloat(valT);
-      if (isNaN(num)) return alert('Insira um valor válido para Temperatura');
+      if (isNaN(num)) return alert('Insira um valor válido para Temperatura.');
       payload.T = num;
     }
     if (isPEnabled) {
       const num = parseFloat(valP);
-      if (isNaN(num)) return alert('Insira um valor válido para Pressão');
+      if (isNaN(num) || num <= 0) return alert('Insira um valor válido para Pressão (> 0).');
       payload.P = num;
     }
     if (isVEnabled) {
       const num = parseFloat(valV);
-      if (isNaN(num)) return alert('Insira um valor válido para Volume Específico');
+      if (isNaN(num) || num <= 0) return alert('Insira um valor válido para Volume Específico (> 0).');
       payload.v = num;
     }
     if (isUEnabled) {
       const num = parseFloat(valU);
-      if (isNaN(num)) return alert('Insira um valor válido para Energia Interna Específica');
+      if (isNaN(num)) return alert('Insira um valor válido para Energia Interna Específica.');
       payload.u = num;
     }
     if (isHEnabled) {
       const num = parseFloat(valH);
-      if (isNaN(num)) return alert('Insira um valor válido para Entalpia');
+      if (isNaN(num)) return alert('Insira um valor válido para Entalpia Específica.');
       payload.h = num;
     }
     if (isSEnabled) {
       const num = parseFloat(valS);
-      if (isNaN(num)) return alert('Insira um valor válido para Entropia');
+      if (isNaN(num)) return alert('Insira um valor válido para Entropia Específica.');
       payload.s = num;
     }
     if (isXEnabled) {
       const num = parseFloat(valX);
-      if (isNaN(num) || num < 0 || num > 1) return alert('Título (Quality) deve estar entre 0 e 1');
+      if (isNaN(num) || num < 0 || num > 1) return alert('O Título (x) deve estar entre 0 e 1.');
       payload.x = num;
     }
 
@@ -130,20 +126,37 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
     onClose();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleOK();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40 backdrop-blur-xs font-mono">
       <div className="bg-[#f0f0f0] border-2 border-slate-900 max-w-lg w-full p-4 shadow-2xl text-slate-900 space-y-4">
         {/* Title bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Propriedades Gerais - {substanceName}
+            Propriedades Gerais — {substanceName}
           </span>
-          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
             <X className="w-4 h-4 text-slate-800" />
           </button>
         </div>
 
-        {/* Content matching Image 1: Left Input Type, Right Fields */}
+        {/* Content: Left Input Type, Right Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
           {/* Left panel: Input Type */}
           <div className="sm:col-span-5 border border-slate-400 bg-white p-3 space-y-1.5">
@@ -151,17 +164,17 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
               Tipo de Entrada
             </span>
             {[
-              { id: '1_TP', label: '1. T & P' },
-              { id: '2_TV', label: '2. T & V' },
-              { id: '3_TU', label: '3. T & U' },
-              { id: '4_TH', label: '4. T & H' },
-              { id: '5_TS', label: '5. T & S' },
-              { id: '6_TX', label: '6. T & X' },
-              { id: '7_PV', label: '7. P & V' },
-              { id: '8_PU', label: '8. P & U' },
-              { id: '9_PH', label: '9. P & H' },
-              { id: '10_PS', label: '10. P & S' },
-              { id: '11_PX', label: '11. P & X' },
+              { id: '1_TP', label: '1. T e P' },
+              { id: '2_TV', label: '2. T e v' },
+              { id: '3_TU', label: '3. T e u' },
+              { id: '4_TH', label: '4. T e h' },
+              { id: '5_TS', label: '5. T e s' },
+              { id: '6_TX', label: '6. T e x' },
+              { id: '7_PV', label: '7. P e v' },
+              { id: '8_PU', label: '8. P e u' },
+              { id: '9_PH', label: '9. P e h' },
+              { id: '10_PS', label: '10. P e s' },
+              { id: '11_PX', label: '11. P e x' },
             ].map((opt) => (
               <label
                 key={opt.id}
@@ -187,7 +200,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Temperature */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isTEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Temperatura
+                Temperatura (T)
               </span>
               <input
                 type="number"
@@ -195,9 +208,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isTEnabled}
                 value={isTEnabled ? valT : ''}
                 onChange={(e) => setValT(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isTEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isTEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.T}</span>
@@ -206,7 +218,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Pressure */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isPEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Pressão
+                Pressão (P)
               </span>
               <input
                 type="number"
@@ -214,9 +226,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isPEnabled}
                 value={isPEnabled ? valP : ''}
                 onChange={(e) => setValP(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isPEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isPEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.P}</span>
@@ -225,7 +236,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Volume */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isVEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Volume Específico
+                Volume Esp. (v)
               </span>
               <input
                 type="number"
@@ -233,9 +244,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isVEnabled}
                 value={isVEnabled ? valV : ''}
                 onChange={(e) => setValV(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isVEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isVEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.v}</span>
@@ -244,7 +254,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Internal Energy */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isUEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Energia Interna Específica
+                Energia Int. (u)
               </span>
               <input
                 type="number"
@@ -252,9 +262,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isUEnabled}
                 value={isUEnabled ? valU : ''}
                 onChange={(e) => setValU(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isUEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isUEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.u}</span>
@@ -263,7 +272,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Enthalpy */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isHEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Entalpia Específica
+                Entalpia Esp. (h)
               </span>
               <input
                 type="number"
@@ -271,9 +280,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isHEnabled}
                 value={isHEnabled ? valH : ''}
                 onChange={(e) => setValH(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isHEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isHEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.h}</span>
@@ -282,7 +290,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
             {/* Specific Entropy */}
             <div className="flex items-center justify-between gap-2">
               <span className={`w-32 text-[11px] font-mono ${isSEnabled ? 'font-bold text-black' : 'text-slate-400'}`}>
-                Entropia Específica
+                Entropia Esp. (s)
               </span>
               <input
                 type="number"
@@ -290,9 +298,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isSEnabled}
                 value={isSEnabled ? valS : ''}
                 onChange={(e) => setValS(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isSEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isSEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[11px] font-mono text-slate-600">{units.s}</span>
@@ -311,9 +318,8 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
                 disabled={!isXEnabled}
                 value={isXEnabled ? valX : ''}
                 onChange={(e) => setValX(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleOK()}
                 className={`w-24 px-1.5 py-1 text-right text-xs border font-mono outline-none ${
-                  isXEnabled ? 'bg-white border-black text-black' : 'bg-slate-100 border-slate-300 text-slate-400'
+                  isXEnabled ? 'bg-white border-black text-black font-bold' : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               />
               <span className="w-12 text-[9px] font-mono text-slate-500 whitespace-nowrap">0 &le; x &le; 1</span>
@@ -321,11 +327,11 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
           </div>
         </div>
 
-        {/* Action Buttons matching CATT3: OK, Cancel, Help */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
             onClick={handleOK}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] active:bg-[#c0c0c0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <Check className="w-4 h-4 text-emerald-700 stroke-[3]" />
             <span>OK</span>
@@ -333,15 +339,15 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
 
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            className="px-5 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <X className="w-4 h-4 text-rose-700 stroke-[3]" />
             <span>Cancelar</span>
           </button>
 
           <button
-            onClick={() => alert('Selecione o Tipo de Entrada na esquerda (1 a 11). Os 2 campos correspondentes serão habilitados na direita para você inserir os valores.')}
-            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
+            onClick={() => alert('Selecione o par de propriedades independentes à esquerda (opções 1 a 11) e insira os dois valores correspondentes à direita para determinar o estado termodinâmico.')}
+            className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
             <span>Ajuda</span>

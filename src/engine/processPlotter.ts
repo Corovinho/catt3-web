@@ -1,6 +1,6 @@
 import { ProcessType, ProcessPoint, ProcessCurve, ThermodynamicState } from '../types/thermo';
 import { WaterEngine } from './water';
-import { RefrigerantEngine, FLUID_CATALOG } from './refrigerants';
+import { RefrigerantEngine } from './refrigerants';
 import { IdealGasEngine, GAS_CATALOG } from './idealGases';
 import { AirEngine } from './air';
 
@@ -51,24 +51,19 @@ export class ProcessPlotter {
       if (inputs.T !== undefined && inputs.P_MPa !== undefined) {
         return IdealGasEngine.solve(substanceId, inputs.T, pBar);
       } else if (inputs.P_MPa !== undefined && inputs.v !== undefined) {
-        const T_K = (inputs.P_MPa * 1000 * inputs.v) / R;
-        return IdealGasEngine.solve(substanceId, T_K - 273.15, pBar);
+        return IdealGasEngine.solveByInput(substanceId, 'vP', inputs.v, pBar);
       } else if (inputs.T !== undefined && inputs.v !== undefined) {
-        const T_K = inputs.T + 273.15;
-        const calcP_bar = (R * T_K) / (inputs.v * 100);
+        return IdealGasEngine.solveByInput(substanceId, 'Tv', inputs.T, inputs.v);
+      } else if (inputs.T !== undefined && inputs.s !== undefined) {
+        const stRef = IdealGasEngine.solve(substanceId, inputs.T, 1.0);
+        const calcP_bar = Math.max(1e-5, Math.min(1e5, Math.exp(((stRef.s0 ?? stRef.s) - inputs.s) / R)));
         return IdealGasEngine.solve(substanceId, inputs.T, calcP_bar);
-      } else if (inputs.P_MPa !== undefined && (inputs.s !== undefined || inputs.h !== undefined || inputs.u !== undefined)) {
-        const prop = inputs.s !== undefined ? 's' : inputs.h !== undefined ? 'h' : 'u';
-        const target = (inputs as any)[prop] as number;
-        let Tlow = -73.0;
-        let Thigh = 2226.0;
-        for (let i = 0; i < 35; i++) {
-          const Tmid = 0.5 * (Tlow + Thigh);
-          const stMid = IdealGasEngine.solve(substanceId, Tmid, pBar);
-          if (stMid[prop] < target) Tlow = Tmid;
-          else Thigh = Tmid;
-        }
-        return IdealGasEngine.solve(substanceId, 0.5 * (Tlow + Thigh), pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.s !== undefined) {
+        return IdealGasEngine.solveByInput(substanceId, 'sP', inputs.s, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.h !== undefined) {
+        return IdealGasEngine.solveByInput(substanceId, 'hP', inputs.h, pBar);
+      } else if (inputs.P_MPa !== undefined && inputs.u !== undefined) {
+        return IdealGasEngine.solveByInput(substanceId, 'uP', inputs.u, pBar);
       }
       return IdealGasEngine.solve(substanceId, inputs.T ?? 25, pBar);
     } else if (cat === 'AIR') {
@@ -84,6 +79,10 @@ export class ProcessPlotter {
         const T_K = inputs.T + 273.15;
         const calcP_bar = (R * T_K) / (inputs.v * 100);
         return AirEngine.solve('T', T_K, calcP_bar);
+      } else if (inputs.T !== undefined && inputs.s !== undefined) {
+        const stRef = AirEngine.solve('T', inputs.T + 273.15, 1.0);
+        const calcP_bar = Math.max(1e-5, Math.min(1e5, Math.exp(((stRef.s0 ?? stRef.s) - inputs.s) / R)));
+        return AirEngine.solve('T', inputs.T + 273.15, calcP_bar);
       } else if (inputs.P_MPa !== undefined && inputs.s !== undefined) {
         const s0 = inputs.s + R * Math.log(inputs.P_MPa / AirEngine.P0_AIR);
         return AirEngine.solve('s0', s0, pBar);
@@ -94,15 +93,43 @@ export class ProcessPlotter {
       }
       return AirEngine.solve('T', (inputs.T ?? 25) + 273.15, pBar);
     }
-    // Fallback clone
     return WaterEngine.solveGeneral({ T: inputs.T || 100, P_MPa: inputs.P_MPa || 0.101325 });
   }
 
+  private static bisectPressureByConstProp(
+    cat: ThermodynamicState['category'],
+    subId: string,
+    constProp: 's' | 'u',
+    constVal: number,
+    targetProp: 'T' | 'v',
+    targetVal: number
+  ): ThermodynamicState {
+    // At constant s or u:
+    // - v(P) is strictly decreasing with P
+    // - T(P) is strictly increasing with P (for gases and fluids above 4°C)
+    let logPLow = Math.log(0.0005); // 0.5 kPa
+    let logPHigh = Math.log(50.0);  // 50 MPa
+    for (let i = 0; i < 45; i++) {
+      const logPMid = 0.5 * (logPLow + logPHigh);
+      const pMid = Math.exp(logPMid);
+      const stMid = this.solveState(cat, subId, { P_MPa: pMid, [constProp]: constVal });
+      if (targetProp === 'v') {
+        if (stMid.v > targetVal) logPLow = logPMid;
+        else logPHigh = logPMid;
+      } else {
+        if (stMid.T < targetVal) logPLow = logPMid;
+        else logPHigh = logPMid;
+      }
+    }
+    const finalP = Math.exp(0.5 * (logPLow + logPHigh));
+    return this.solveState(cat, subId, { P_MPa: finalP, [constProp]: constVal });
+  }
+
   static calculateProcess(params: ProcessCalculationParams): ProcessCurve {
-    const { state1, type, targetValue, polytropicN = 1.3 } = params;
+    const { state1, type, targetProperty, targetValue, polytropicN = 1.3 } = params;
     const cat = state1.category;
     const subId = state1.substanceId;
-    const numPoints = 20;
+    const numPoints = 24;
     const path: ProcessPoint[] = [];
 
     let state2: ThermodynamicState;
@@ -110,69 +137,106 @@ export class ProcessPlotter {
     let heat = 0; // kJ/kg
 
     if (type === 'ISOBARIC') {
-      // P = const, target is final T (°C) or final v
+      // P = const, target can be T, v, h, or s
       const P_MPa = state1.P_MPa;
-      const T2 = targetValue;
-      state2 = this.solveState(cat, subId, { P_MPa, T: T2 });
-
-      for (let i = 0; i <= numPoints; i++) {
-        const frac = i / numPoints;
-        const curT = state1.T + frac * (state2.T - state1.T);
-        const curPt = this.solveState(cat, subId, { P_MPa, T: curT });
-        path.push({ T: curPt.T, P: state1.P, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
+      if (targetProperty === 'v') {
+        state2 = this.solveState(cat, subId, { P_MPa, v: targetValue });
+      } else if (targetProperty === 'h') {
+        state2 = this.solveState(cat, subId, { P_MPa, h: targetValue });
+      } else if (targetProperty === 's') {
+        state2 = this.solveState(cat, subId, { P_MPa, s: targetValue });
+      } else {
+        state2 = this.solveState(cat, subId, { P_MPa, T: targetValue });
       }
 
-      // w = P * (v2 - v1) (P in kPa -> w in kJ/kg)
+      // Interpolate along enthalpy h so two-phase dome crossings are smooth and exact
+      path.push({ T: state1.T, P: state1.P, v: state1.v, s: state1.s, h: state1.h, u: state1.u, x: state1.x });
+      for (let i = 1; i < numPoints; i++) {
+        const frac = i / numPoints;
+        const curH = state1.h + frac * (state2.h - state1.h);
+        const curPt = this.solveState(cat, subId, { P_MPa, h: curH });
+        path.push({ T: curPt.T, P: state1.P, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u, x: curPt.x });
+      }
+      path.push({ T: state2.T, P: state1.P, v: state2.v, s: state2.s, h: state2.h, u: state2.u, x: state2.x });
+
       work = (P_MPa * 1000) * (state2.v - state1.v);
       heat = state2.h - state1.h;
     } else if (type === 'ISOTHERMAL') {
-      // T = const, target is final P (MPa)
+      // T = const, target can be P, v, or s
       const T_C = state1.T;
-      const P2_MPa = targetValue;
-      state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, T: T_C });
-
-      for (let i = 0; i <= numPoints; i++) {
-        const frac = i / numPoints;
-        const curP_MPa = state1.P_MPa + frac * (P2_MPa - state1.P_MPa);
-        const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, T: T_C });
-        path.push({ T: T_C, P: curP_MPa * 10, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
+      if (targetProperty === 'v') {
+        state2 = this.solveState(cat, subId, { T: T_C, v: targetValue });
+      } else if (targetProperty === 's') {
+        state2 = this.solveState(cat, subId, { T: T_C, s: targetValue });
+      } else {
+        state2 = this.solveState(cat, subId, { P_MPa: targetValue, T: T_C });
       }
+
+      const P2_MPa = state2.P_MPa;
+      const isIsobaricDome = Math.abs(P2_MPa - state1.P_MPa) < 1e-5;
+
+      path.push({ T: T_C, P: state1.P_MPa * 10, v: state1.v, s: state1.s, h: state1.h, u: state1.u });
+      for (let i = 1; i < numPoints; i++) {
+        const frac = i / numPoints;
+        if (isIsobaricDome) {
+          const curV = state1.v + frac * (state2.v - state1.v);
+          const curPt = this.solveState(cat, subId, { T: T_C, v: curV });
+          path.push({ T: T_C, P: curPt.P_MPa * 10, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
+        } else {
+          const curP_MPa = state1.P_MPa + frac * (P2_MPa - state1.P_MPa);
+          const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, T: T_C });
+          path.push({ T: T_C, P: curP_MPa * 10, v: curPt.v, s: curPt.s, h: curPt.h, u: curPt.u });
+        }
+      }
+      path.push({ T: T_C, P: state2.P_MPa * 10, v: state2.v, s: state2.s, h: state2.h, u: state2.u });
 
       const deltaU = state2.u - state1.u;
       heat = (T_C + 273.15) * (state2.s - state1.s);
       work = heat - deltaU;
     } else if (type === 'ISOCHORIC') {
-      // v = const, target is final P (MPa) or final T (°C)
+      // v = const, target can be P or T
       const v = state1.v;
-      if (params.targetProperty === 'T') {
-        const T2 = targetValue;
-        state2 = this.solveState(cat, subId, { T: T2, v });
+      if (targetProperty === 'T') {
+        state2 = this.solveState(cat, subId, { T: targetValue, v });
       } else {
-        const P2_MPa = targetValue;
-        state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, v });
+        state2 = this.solveState(cat, subId, { P_MPa: targetValue, v });
       }
 
-      for (let i = 0; i <= numPoints; i++) {
+      path.push({ T: state1.T, P: state1.P_MPa * 10, v, s: state1.s, h: state1.h, u: state1.u });
+      for (let i = 1; i < numPoints; i++) {
         const frac = i / numPoints;
         const curP_MPa = state1.P_MPa + frac * (state2.P_MPa - state1.P_MPa);
         const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, v });
-        path.push({ T: curPt.T, P: curPt.P, v, s: curPt.s, h: curPt.h, u: curPt.u });
+        path.push({ T: curPt.T, P: curP_MPa * 10, v, s: curPt.s, h: curPt.h, u: curPt.u });
       }
+      path.push({ T: state2.T, P: state2.P_MPa * 10, v, s: state2.s, h: state2.h, u: state2.u });
 
       work = 0;
       heat = state2.u - state1.u;
     } else if (type === 'ISENTROPIC') {
-      // s = const, target is final P (MPa)
+      // s = const, target can be P, T, or v
       const s_target = state1.s;
-      const P2_MPa = targetValue;
-      state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, s: s_target });
+      if (targetProperty === 'T') {
+        if (cat === 'AIR' || cat === 'IDEAL_GASES') {
+          state2 = this.solveState(cat, subId, { T: targetValue, s: s_target });
+        } else {
+          state2 = this.bisectPressureByConstProp(cat, subId, 's', s_target, 'T', targetValue);
+        }
+      } else if (targetProperty === 'v') {
+        state2 = this.bisectPressureByConstProp(cat, subId, 's', s_target, 'v', targetValue);
+      } else {
+        state2 = this.solveState(cat, subId, { P_MPa: targetValue, s: s_target });
+      }
 
-      for (let i = 0; i <= numPoints; i++) {
+      const P2_MPa = state2.P_MPa;
+      path.push({ T: state1.T, P: state1.P_MPa * 10, v: state1.v, s: s_target, h: state1.h, u: state1.u });
+      for (let i = 1; i < numPoints; i++) {
         const frac = i / numPoints;
         const curP_MPa = state1.P_MPa + frac * (P2_MPa - state1.P_MPa);
         const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, s: s_target });
-        path.push({ T: curPt.T, P: curPt.P, v: curPt.v, s: s_target, h: curPt.h, u: curPt.u });
+        path.push({ T: curPt.T, P: curP_MPa * 10, v: curPt.v, s: s_target, h: curPt.h, u: curPt.u });
       }
+      path.push({ T: state2.T, P: P2_MPa * 10, v: state2.v, s: s_target, h: state2.h, u: state2.u });
 
       heat = 0;
       work = -(state2.u - state1.u);
@@ -182,29 +246,36 @@ export class ProcessPlotter {
       const P2_MPa = targetValue;
       state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, h: h_target });
 
-      for (let i = 0; i <= numPoints; i++) {
+      path.push({ T: state1.T, P: state1.P_MPa * 10, v: state1.v, s: state1.s, h: h_target, u: state1.u });
+      for (let i = 1; i < numPoints; i++) {
         const frac = i / numPoints;
         const curP_MPa = state1.P_MPa + frac * (P2_MPa - state1.P_MPa);
         const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, h: h_target });
-        path.push({ T: curPt.T, P: curPt.P, v: curPt.v, s: curPt.s, h: h_target, u: curPt.u });
+        path.push({ T: curPt.T, P: curP_MPa * 10, v: curPt.v, s: curPt.s, h: h_target, u: curPt.u });
       }
+      path.push({ T: state2.T, P: P2_MPa * 10, v: state2.v, s: state2.s, h: h_target, u: state2.u });
 
       work = 0;
       heat = 0;
     } else if (type === 'ISENERGIC') {
-      // u = const, target is final P (MPa)
+      // u = const, target can be P or v
       const u_target = state1.u;
-      const P2_MPa = targetValue;
-      state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, u: u_target });
+      if (targetProperty === 'v') {
+        state2 = this.bisectPressureByConstProp(cat, subId, 'u', u_target, 'v', targetValue);
+      } else {
+        state2 = this.solveState(cat, subId, { P_MPa: targetValue, u: u_target });
+      }
 
-      for (let i = 0; i <= numPoints; i++) {
+      const P2_MPa = state2.P_MPa;
+      path.push({ T: state1.T, P: state1.P_MPa * 10, v: state1.v, s: state1.s, h: state1.h, u: u_target });
+      for (let i = 1; i < numPoints; i++) {
         const frac = i / numPoints;
         const curP_MPa = state1.P_MPa + frac * (P2_MPa - state1.P_MPa);
         const curPt = this.solveState(cat, subId, { P_MPa: curP_MPa, u: u_target });
-        path.push({ T: curPt.T, P: curPt.P, v: curPt.v, s: curPt.s, h: curPt.h, u: u_target });
+        path.push({ T: curPt.T, P: curP_MPa * 10, v: curPt.v, s: curPt.s, h: curPt.h, u: u_target });
       }
+      path.push({ T: state2.T, P: P2_MPa * 10, v: state2.v, s: state2.s, h: state2.h, u: u_target });
 
-      // First Law with deltaU = 0: q = w = integral(P dv)
       work = 0;
       for (let i = 0; i < path.length - 1; i++) {
         const pAvg_kPa = 0.5 * (path[i].P + path[i + 1].P) * 100; // bar -> kPa
@@ -214,7 +285,7 @@ export class ProcessPlotter {
     } else if (type === 'PINVERSE_V') {
       // P * v = const (C = P1 * v1)
       const C = state1.P_MPa * state1.v;
-      const P2_MPa = targetValue;
+      const P2_MPa = targetProperty === 'v' ? C / Math.max(1e-8, targetValue) : targetValue;
       const v2 = C / P2_MPa;
       state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, v: v2 });
 
@@ -226,14 +297,46 @@ export class ProcessPlotter {
         path.push({ T: curPt.T, P: curP_MPa * 10, v: curV, s: curPt.s, h: curPt.h, u: curPt.u });
       }
 
-      // w = C * ln(v2/v1) em kJ/kg (P em kPa -> * 1000)
       work = (C * 1000) * Math.log(v2 / state1.v);
       heat = (state2.u - state1.u) + work;
     } else if (type === 'POLYTROPIC') {
       // P * v^n = const
       const n = polytropicN;
-      const P2_MPa = targetValue;
-      const v2 = state1.v * Math.pow(state1.P_MPa / P2_MPa, 1 / n);
+      let P2_MPa: number;
+      let v2: number;
+
+      if (targetProperty === 'v') {
+        v2 = Math.max(1e-8, targetValue);
+        P2_MPa = state1.P_MPa * Math.pow(state1.v / v2, n);
+      } else if (targetProperty === 'T' && Math.abs(n - 1.0) > 1e-4) {
+        let logVLow = Math.log(state1.v * 0.02);
+        let logVHigh = Math.log(state1.v * 50.0);
+        const pAtLow = state1.P_MPa * Math.pow(state1.v / Math.exp(logVLow), n);
+        const pAtHigh = state1.P_MPa * Math.pow(state1.v / Math.exp(logVHigh), n);
+        const tAtLow = this.solveState(cat, subId, { P_MPa: pAtLow, v: Math.exp(logVLow) }).T;
+        const tAtHigh = this.solveState(cat, subId, { P_MPa: pAtHigh, v: Math.exp(logVHigh) }).T;
+        const increasingWithV = tAtHigh > tAtLow;
+
+        for (let i = 0; i < 45; i++) {
+          const logVMid = 0.5 * (logVLow + logVHigh);
+          const vMid = Math.exp(logVMid);
+          const pMid = state1.P_MPa * Math.pow(state1.v / vMid, n);
+          const stMid = this.solveState(cat, subId, { P_MPa: pMid, v: vMid });
+          if (increasingWithV) {
+            if (stMid.T < targetValue) logVLow = logVMid;
+            else logVHigh = logVMid;
+          } else {
+            if (stMid.T > targetValue) logVLow = logVMid;
+            else logVHigh = logVMid;
+          }
+        }
+        v2 = Math.exp(0.5 * (logVLow + logVHigh));
+        P2_MPa = state1.P_MPa * Math.pow(state1.v / v2, n);
+      } else {
+        P2_MPa = targetValue;
+        v2 = state1.v * Math.pow(state1.P_MPa / P2_MPa, 1 / n);
+      }
+
       state2 = this.solveState(cat, subId, { P_MPa: P2_MPa, v: v2 });
 
       for (let i = 0; i <= numPoints; i++) {
@@ -247,7 +350,6 @@ export class ProcessPlotter {
       if (Math.abs(n - 1.0) < 1e-5) {
         work = (state1.P_MPa * 1000 * state1.v) * Math.log(v2 / state1.v);
       } else {
-        // w = (P2*v2 - P1*v1) / (1 - n) (em kJ/kg)
         work = ((P2_MPa * 1000 * v2) - (state1.P_MPa * 1000 * state1.v)) / (1 - n);
       }
       heat = (state2.u - state1.u) + work;
@@ -265,7 +367,6 @@ export class ProcessPlotter {
         path.push({ T: curPt.T, P: curP_MPa * 10, v: curV, s: curPt.s, h: curPt.h, u: curPt.u });
       }
 
-      // w = (P1 + P2)/2 * (v2 - v1) (área do trapézio)
       work = ((state1.P_MPa + P2_MPa) * 1000 / 2) * (v2 - state1.v);
       heat = (state2.u - state1.u) + work;
     }
@@ -274,6 +375,7 @@ export class ProcessPlotter {
       id: Math.random().toString(36).substring(2, 9),
       type,
       label: this.getProcessNamePtBr(type),
+      substanceId: state1.substanceId,
       substanceName: state1.substanceName,
       category: state1.category,
       state1,

@@ -25,10 +25,27 @@ import { AboutDialog } from './components/AboutDialog';
 import { WaterEngine } from './engine/water';
 import { RefrigerantEngine, FLUID_CATALOG } from './engine/refrigerants';
 import { AirEngine } from './engine/air';
-import { IdealGasEngine, GAS_CATALOG } from './engine/idealGases';
+import { IdealGasEngine, GAS_CATALOG, IdealGasInputMode } from './engine/idealGases';
 import { CompressibilityEngine } from './engine/compressibility';
 import { PsychrometricsEngine } from './engine/psychrometrics';
 import { UnitConverter } from './engine/units';
+
+const getCanonicalSubId = (cat: SubstanceCategory, subId?: string): string => {
+  if (cat === 'WATER') return 'water';
+  if (cat === 'AIR') return 'air';
+  if (cat === 'COMPRESSIBILITY') return 'compressibility';
+  if (cat === 'PSYCHROMETRICS') return 'psychrometrics';
+  const raw = (subId || '').toLowerCase();
+  if (cat === 'REFRIGERANTS' || cat === 'CRYOGENICS') {
+    return FLUID_CATALOG[raw]?.id || raw;
+  }
+  if (cat === 'IDEAL_GASES') {
+    if (raw === 'h2o_gas') return 'h2o';
+    const g = GAS_CATALOG[raw];
+    return g ? (g.id === 'h2o_gas' ? 'h2o' : g.id) : raw;
+  }
+  return raw;
+};
 
 export const App: React.FC = () => {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('SI');
@@ -55,8 +72,12 @@ export const App: React.FC = () => {
   const [currentState, setCurrentState] = useState<ThermodynamicState | null>(null);
   const [statesLog, setStatesLog] = useState<ThermodynamicState[]>(() => {
     try {
-      const saved = localStorage.getItem('catt3_states_log');
-      return saved ? JSON.parse(saved) : [];
+      const saved = localStorage.getItem('entrolab_states_log') || localStorage.getItem('catt3_states_log');
+      if (!saved) return [];
+      const parsed: ThermodynamicState[] = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? [...parsed].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+        : [];
     } catch {
       return [];
     }
@@ -65,13 +86,13 @@ export const App: React.FC = () => {
   // Save to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('catt3_states_log', JSON.stringify(statesLog));
+      localStorage.setItem('entrolab_states_log', JSON.stringify(statesLog));
     } catch {
       // ignore
     }
   }, [statesLog]);
 
-  // Initial calculation on load (Water at 100 C, 0.1 MPa)
+  // Initial calculation on load (Water at 100 C, 0.101325 MPa)
   useEffect(() => {
     try {
       const initial = WaterEngine.solveGeneral({ T: 100, P_MPa: 0.101325 });
@@ -81,15 +102,79 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Global Keyboard Shortcuts (F1: About, F4: Process, F6: Units, Ins: Add to Log)
+  // Scoped states & process curves for the active substance/tab in chronological order
+  const activeCanonicalSub = getCanonicalSubId(category, substanceId);
+  const activeStates = statesLog
+    .filter((s) => s.category === category && getCanonicalSubId(s.category, s.substanceId) === activeCanonicalSub)
+    .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+    .map((s, idx) => ({ ...s, stateNumber: idx + 1 }));
+
+  const activeProcessCurves = processCurves.filter(
+    (c) => c.category === category && getCanonicalSubId(c.category, c.substanceId || c.state1.substanceId) === activeCanonicalSub
+  );
+
+  // Open calculation dialog router based on active category & mode
+  const handleOpenCalculate = () => {
+    if (category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') {
+      if (calcMode === 'SATURATION') {
+        setIsFluidSatOpen(true);
+      } else {
+        setIsGeneralPropsOpen(true);
+      }
+    } else if (category === 'AIR') {
+      setIsAirCalcOpen(true);
+    } else if (category === 'IDEAL_GASES') {
+      setIsGasCalcOpen(true);
+    } else if (category === 'COMPRESSIBILITY') {
+      setIsComprCalcOpen(true);
+    } else if (category === 'PSYCHROMETRICS') {
+      setIsPsychroCalcOpen(true);
+    }
+  };
+
+  const handleAddStateToLog = (st: ThermodynamicState) => {
+    setStatesLog((prev) => {
+      const stCanon = getCanonicalSubId(st.category, st.substanceId);
+      const countForSub = prev.filter(
+        (p) => p.category === st.category && getCanonicalSubId(p.category, p.substanceId) === stCanon
+      ).length;
+      const nextNum = countForSub + 1;
+      const newState: ThermodynamicState = {
+        ...st,
+        id: Math.random().toString(36).substring(2, 9),
+        stateNumber: nextNum,
+        label: st.label || `Estado ${nextNum}`,
+        timestamp: Date.now() + prev.length,
+      };
+      return [...prev, newState];
+    });
+  };
+
+  // Global Keyboard Shortcuts (F1: About, F2: Calculate, F4: Process, F6: Units, Ins: Add to Log)
   useEffect(() => {
+    const anyModalOpen =
+      isGeneralPropsOpen ||
+      isFluidSatOpen ||
+      isAirCalcOpen ||
+      isGasCalcOpen ||
+      isComprCalcOpen ||
+      isPsychroCalcOpen ||
+      isTablesSubstancesOpen ||
+      isUnitsOpen ||
+      isProcessOpen ||
+      isAboutOpen;
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (anyModalOpen) return;
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
       if (e.key === 'F1') {
         e.preventDefault();
         setIsAboutOpen(true);
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        handleOpenCalculate();
       } else if (e.key === 'F4') {
         e.preventDefault();
         setIsProcessOpen(true);
@@ -104,7 +189,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentState]);
+  });
 
   // Update default state when category or substance changes
   const handleCategoryChange = (newCat: SubstanceCategory, newSubId?: string) => {
@@ -113,7 +198,7 @@ export const App: React.FC = () => {
     if (!sid) {
       if (newCat === 'WATER') sid = 'water';
       else if (newCat === 'REFRIGERANTS') sid = 'r134a';
-      else if (newCat === 'CRYOGENICS') sid = 'nh3';
+      else if (newCat === 'CRYOGENICS') sid = 'ammonia';
       else if (newCat === 'AIR') sid = 'air';
       else if (newCat === 'IDEAL_GASES') sid = 'co2';
       else if (newCat === 'COMPRESSIBILITY') sid = 'compressibility';
@@ -121,7 +206,6 @@ export const App: React.FC = () => {
     }
     setSubstanceId(sid);
 
-    // Calculate a default initial state for that category
     try {
       let st: ThermodynamicState;
       if (newCat === 'WATER') {
@@ -142,25 +226,6 @@ export const App: React.FC = () => {
       setCurrentState(st);
     } catch {
       // ignore
-    }
-  };
-
-  // Open calculation dialog router based on active category & mode
-  const handleOpenCalculate = () => {
-    if (category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') {
-      if (calcMode === 'SATURATION') {
-        setIsFluidSatOpen(true);
-      } else {
-        setIsGeneralPropsOpen(true);
-      }
-    } else if (category === 'AIR') {
-      setIsAirCalcOpen(true);
-    } else if (category === 'IDEAL_GASES') {
-      setIsGasCalcOpen(true);
-    } else if (category === 'COMPRESSIBILITY') {
-      setIsComprCalcOpen(true);
-    } else if (category === 'PSYCHROMETRICS') {
-      setIsPsychroCalcOpen(true);
     }
   };
 
@@ -189,7 +254,6 @@ export const App: React.FC = () => {
         if (data.x !== undefined) props.x = data.x;
         st = WaterEngine.solveGeneral(props);
       } else {
-        // Refrigerants / Cryogenics
         const fluid = RefrigerantEngine.getFluid(substanceId);
         const mm = fluid?.molarMass;
 
@@ -369,14 +433,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handler: Ideal Gas Properties
+  // Handler: Ideal Gas Properties (7 input combinations)
   const handleCalculateGas = (data: {
     gasId: string;
-    temperatureC: number;
-    pressureBar: number;
+    mode: IdealGasInputMode;
+    val1: number;
+    val2: number;
   }) => {
     try {
-      const st = IdealGasEngine.solve(data.gasId, data.temperatureC, data.pressureBar);
+      setSubstanceId(data.gasId);
+      const st = IdealGasEngine.solveByInput(data.gasId, data.mode, data.val1, data.val2);
       setCurrentState(st);
       handleAddStateToLog(st);
     } catch (err: any) {
@@ -415,21 +481,25 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAddStateToLog = (st: ThermodynamicState) => {
-    const newState: ThermodynamicState = {
-      ...st,
-      id: Math.random().toString(36).substring(2, 9),
-      stateNumber: statesLog.length + 1,
-      label: `Estado ${statesLog.length + 1}`,
-      timestamp: Date.now(),
-    };
-    setStatesLog((prev) => [newState, ...prev]);
+  const handleClearLog = () => {
+    if (activeStates.length === 0) return;
+    if (confirm('Deseja limpar os estados avaliados desta substância?')) {
+      setStatesLog((prev) =>
+        prev.filter((s) => !(s.category === category && getCanonicalSubId(s.category, s.substanceId) === activeCanonicalSub))
+      );
+    }
   };
 
-  const handleClearLog = () => {
-    if (confirm('Deseja realmente limpar todos os estados avaliados do histórico?')) {
-      setStatesLog([]);
-    }
+  const handleClearActiveProcessCurves = () => {
+    setProcessCurves((prev) =>
+      prev.filter(
+        (c) => !(c.category === category && getCanonicalSubId(c.category, c.substanceId || c.state1.substanceId) === activeCanonicalSub)
+      )
+    );
+  };
+
+  const handleDeleteProcessCurve = (id: string) => {
+    setProcessCurves((prev) => prev.filter((c) => c.id !== id));
   };
 
   const handleDeleteState = (id: string) => {
@@ -443,13 +513,13 @@ export const App: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    if (statesLog.length === 0) {
-      alert('Nenhum estado adicionado ao histórico para exportar.');
+    if (activeStates.length === 0) {
+      alert('Nenhum estado adicionado ao histórico desta substância para exportar.');
       return;
     }
     const curUnits = UnitConverter.getUnitLabels(unitSystem);
     const header = `#;Substância;Temperatura (${curUnits.T});Pressão (${curUnits.P});Volume Específico (${curUnits.v});Energia Interna (${curUnits.u});Entalpia (${curUnits.h});Entropia (${curUnits.s});Título (x);Fase\n`;
-    const rows = statesLog.map((s, idx) => {
+    const rows = activeStates.map((s, idx) => {
       const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
       const dispT = UnitConverter.fromInternalT(s.T, curUnits.T);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P);
@@ -465,21 +535,21 @@ export const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `CATT3_Log_${Date.now()}.csv`);
+    link.setAttribute('download', `EntroLab_Estados_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const handleCopyTable = () => {
-    if (statesLog.length === 0) {
-      alert('Nenhum estado adicionado ao histórico para copiar.');
+    if (activeStates.length === 0) {
+      alert('Nenhum estado adicionado ao histórico desta substância para copiar.');
       return;
     }
     const curUnits = UnitConverter.getUnitLabels(unitSystem);
     let md = `| # | Substância | Temperatura [${curUnits.T}] | Pressão [${curUnits.P}] | Volume [${curUnits.v}] | Energia [${curUnits.u}] | Entalpia [${curUnits.h}] | Entropia [${curUnits.s}] | Título | Fase |\n`;
     md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
-    statesLog.forEach((s, idx) => {
+    activeStates.forEach((s, idx) => {
       const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
       const dispT = UnitConverter.fromInternalT(s.T, curUnits.T).toFixed(2);
       const dispP = UnitConverter.fromInternalP(s.P_MPa, curUnits.P).toFixed(4);
@@ -527,11 +597,11 @@ export const App: React.FC = () => {
         setUnitSystem={setUnitSystem}
         activeView={activeView}
         setActiveView={setActiveView}
-        logCount={statesLog.length}
+        logCount={activeStates.length}
         onOpenProcess={() => setIsProcessOpen(true)}
       />
 
-      {/* Main Menu & Toolbar matching CATT3 */}
+      {/* Main Menu & Toolbar */}
       <MainToolbar
         onOpenCalculate={handleOpenCalculate}
         onOpenUnits={() => setIsUnitsOpen(true)}
@@ -551,16 +621,15 @@ export const App: React.FC = () => {
         onExportCSV={handleExportCSV}
         onCopyTable={handleCopyTable}
         onOpenAbout={() => setIsAboutOpen(true)}
-        onClearProcessCurves={() => setProcessCurves([])}
+        onClearProcessCurves={handleClearActiveProcessCurves}
       />
 
-      {/* Main Workspace matching CATT3 Screen */}
+      {/* Main Workspace */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 space-y-3">
         {activeView === 'calc' && (
           <>
             {/* UPPER SECTION: Split Left (Properties Box) & Right (Diagram) */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
-              {/* Upper Left: Properties Box dedicated per tab */}
               <div className="md:col-span-5 flex flex-col">
                 <PropertiesBox
                   state={currentState}
@@ -571,16 +640,17 @@ export const App: React.FC = () => {
                 />
               </div>
 
-              {/* Upper Right: Diagram dedicated per tab (T-s / P-v / Psychrometric / Compressibility) */}
               <div className="md:col-span-7 flex flex-col">
                 <DiagramView
-                  states={statesLog}
+                  states={activeStates}
                   category={category}
                   currentSubstance={substanceId}
                   diagramType={diagramType}
                   setDiagramType={setDiagramType}
-                  processCurves={processCurves}
-                  onClearProcessCurves={() => setProcessCurves([])}
+                  unitSystem={unitSystem}
+                  processCurves={activeProcessCurves}
+                  onClearProcessCurves={handleClearActiveProcessCurves}
+                  onDeleteProcessCurve={handleDeleteProcessCurve}
                 />
               </div>
             </div>
@@ -588,7 +658,7 @@ export const App: React.FC = () => {
             {/* LOWER SECTION: Spreadsheet Log Table */}
             <div>
               <StateLogTable
-                states={statesLog}
+                states={activeStates}
                 unitSystem={unitSystem}
                 activeCategory={category}
                 onClear={handleClearLog}
@@ -607,13 +677,13 @@ export const App: React.FC = () => {
               </span>
               <button
                 onClick={handleOpenCalculate}
-                className="px-3 py-1 bg-black text-white text-xs font-bold uppercase hover:bg-slate-800 transition-colors"
+                className="px-3 py-1 bg-black text-white text-xs font-bold uppercase hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 + Calcular Novo Estado
               </button>
             </div>
             <StateLogTable
-              states={statesLog}
+              states={activeStates}
               unitSystem={unitSystem}
               activeCategory={category}
               onClear={handleClearLog}
@@ -626,19 +696,21 @@ export const App: React.FC = () => {
         {activeView === 'diagram' && (
           <div className="space-y-3">
             <DiagramView
-              states={statesLog}
+              states={activeStates}
               category={category}
               currentSubstance={substanceId}
               diagramType={diagramType}
               setDiagramType={setDiagramType}
-              processCurves={processCurves}
-              onClearProcessCurves={() => setProcessCurves([])}
+              unitSystem={unitSystem}
+              processCurves={activeProcessCurves}
+              onClearProcessCurves={handleClearActiveProcessCurves}
+              onDeleteProcessCurve={handleDeleteProcessCurve}
             />
           </div>
         )}
       </div>
 
-      {/* BOTTOM SECTION: Substance Tabs & Status Bar matching CATT3 */}
+      {/* BOTTOM SECTION: Substance Tabs & Status Bar */}
       <BottomTabs
         category={category}
         substanceId={substanceId}
@@ -647,7 +719,6 @@ export const App: React.FC = () => {
       />
 
       {/* ===================== MODALS & DIALOGS ===================== */}
-      {/* Tables & Substances Picker Modal */}
       <TablesSubstancesModal
         isOpen={isTablesSubstancesOpen}
         onClose={() => setIsTablesSubstancesOpen(false)}
@@ -656,7 +727,6 @@ export const App: React.FC = () => {
         onSelect={(cat, sub) => handleCategoryChange(cat, sub)}
       />
 
-      {/* Fluid General Properties Dialog (Water, Refrigerants, Cryogenics) */}
       <GeneralPropertiesDialog
         isOpen={isGeneralPropsOpen}
         onClose={() => setIsGeneralPropsOpen(false)}
@@ -671,7 +741,6 @@ export const App: React.FC = () => {
         onCalculate={handleCalculateFluidGeneral}
       />
 
-      {/* Fluid Saturation Properties Dialog */}
       <FluidSatDialog
         isOpen={isFluidSatOpen}
         onClose={() => setIsFluidSatOpen(false)}
@@ -682,7 +751,6 @@ export const App: React.FC = () => {
         onCalculate={handleCalculateFluidSat}
       />
 
-      {/* Air Calculate Dialog */}
       <AirCalculateDialog
         isOpen={isAirCalcOpen}
         onClose={() => setIsAirCalcOpen(false)}
@@ -690,7 +758,6 @@ export const App: React.FC = () => {
         onCalculate={handleCalculateAir}
       />
 
-      {/* Ideal Gas Calculate Dialog */}
       <GasCalculateDialog
         isOpen={isGasCalcOpen}
         onClose={() => setIsGasCalcOpen(false)}
@@ -700,14 +767,12 @@ export const App: React.FC = () => {
         onCalculate={handleCalculateGas}
       />
 
-      {/* Compressibility Calculate Dialog */}
       <ComprCalculateDialog
         isOpen={isComprCalcOpen}
         onClose={() => setIsComprCalcOpen(false)}
         onCalculate={handleCalculateCompr}
       />
 
-      {/* Psychrometric Calculate Dialog */}
       <PsychroCalculateDialog
         isOpen={isPsychroCalcOpen}
         onClose={() => setIsPsychroCalcOpen(false)}
@@ -715,7 +780,6 @@ export const App: React.FC = () => {
         onCalculate={handleCalculatePsychro}
       />
 
-      {/* Units Dialog */}
       <UnitsDialog
         isOpen={isUnitsOpen}
         onClose={() => setIsUnitsOpen(false)}
@@ -725,18 +789,16 @@ export const App: React.FC = () => {
         onSelectUnitSystem={setUnitSystem}
       />
 
-      {/* Process Wizard Modal */}
       <ProcessModal
         isOpen={isProcessOpen}
         onClose={() => setIsProcessOpen(false)}
         currentState={currentState}
-        statesLog={statesLog}
+        statesLog={activeStates}
         unitSystem={unitSystem}
         onAddProcess={(curve) => setProcessCurves((prev) => [...prev, curve])}
         onAddStateToLog={handleAddStateToLog}
       />
 
-      {/* About CATT3 Dialog */}
       <AboutDialog
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}

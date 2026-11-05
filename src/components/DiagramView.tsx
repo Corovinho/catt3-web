@@ -1,6 +1,10 @@
-import { ThermodynamicState, SubstanceCategory, ProcessCurve } from '../types/thermo';
+import React from 'react';
+import { ThermodynamicState, SubstanceCategory, ProcessCurve, UnitSystem } from '../types/thermo';
 import { FLUID_CATALOG } from '../engine/refrigerants';
+import { GAS_CATALOG } from '../engine/idealGases';
 import { WATER_TS_DOME, WATER_PV_DOME } from '../engine/waterDome';
+import { UnitConverter } from '../engine/units';
+import { X } from 'lucide-react';
 
 interface DiagramViewProps {
   states: ThermodynamicState[];
@@ -8,8 +12,10 @@ interface DiagramViewProps {
   currentSubstance: string;
   diagramType: 'Ts' | 'Pv';
   setDiagramType: (d: 'Ts' | 'Pv') => void;
+  unitSystem?: UnitSystem;
   processCurves?: ProcessCurve[];
   onClearProcessCurves?: () => void;
+  onDeleteProcessCurve?: (id: string) => void;
 }
 
 export const DiagramView: React.FC<DiagramViewProps> = ({
@@ -18,8 +24,10 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   currentSubstance,
   diagramType,
   setDiagramType,
+  unitSystem = 'SI',
   processCurves = [],
   onClearProcessCurves,
+  onDeleteProcessCurve,
 }) => {
   const width = 640;
   const height = 370;
@@ -28,13 +36,21 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   const padT = 35;
   const padB = 55;
 
+  const units = UnitConverter.getUnitLabels(unitSystem);
+
+  // Plotted states already filtered by App, sorted chronologically (#1 -> #2 -> #3)
+  const plottedStates = [...states]
+    .filter((s) => s.category === category)
+    .sort((a, b) => (a.stateNumber ?? 0) - (b.stateNumber ?? 0) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+  const activeCurves = processCurves.filter((c) => c.category === category);
+
   // =========================================================================
-  // 1. FLUIDS (WATER, REFRIGERANTS, CRYOGENICS) - T-s & P-v
+  // 1. FLUIDS & GASES SCALES (T-s & P-v) WITH DYNAMIC OVERFLOW AUTO-RANGE
   // =========================================================================
   const tsDomeWater = WATER_TS_DOME;
   const pvDomeWater = WATER_PV_DOME;
 
-  // Fluid Dome selection & dynamic scale bounds
   const fluidDef = (category === 'REFRIGERANTS' || category === 'CRYOGENICS')
     ? (FLUID_CATALOG[currentSubstance] || FLUID_CATALOG['r134a'])
     : null;
@@ -91,6 +107,71 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     maxLogV = Math.ceil(Math.log10(rawMaxV) * 10) / 10;
   }
 
+  // Expand bounds ONLY if plotted states or process curves exceed default bounds
+  let defaultScaleUnchanged = true;
+  if (category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS' || category === 'AIR' || category === 'IDEAL_GASES') {
+    const sampleTs: number[] = [];
+    const sampleSs: number[] = [];
+    const samplePs: number[] = [];
+    const sampleVs: number[] = [];
+
+    plottedStates.forEach((st) => {
+      if (Number.isFinite(st.T)) sampleTs.push(st.T);
+      if (Number.isFinite(st.s)) sampleSs.push(st.s);
+      if (Number.isFinite(st.P_MPa)) samplePs.push(st.P_MPa);
+      if (Number.isFinite(st.v) && st.v > 0) sampleVs.push(st.v);
+    });
+    activeCurves.forEach((c) => {
+      c.path.forEach((pt) => {
+        if (Number.isFinite(pt.T)) sampleTs.push(pt.T);
+        if (Number.isFinite(pt.s)) sampleSs.push(pt.s);
+        if (Number.isFinite(pt.P)) samplePs.push(pt.P * 0.1);
+        if (Number.isFinite(pt.v) && pt.v > 0) sampleVs.push(pt.v);
+      });
+    });
+
+    if (sampleTs.length > 0) {
+      const obsMinT = Math.min(...sampleTs);
+      const obsMaxT = Math.max(...sampleTs);
+      if (obsMinT < minT) {
+        minT = Math.floor((obsMinT - 20) / 50) * 50;
+        defaultScaleUnchanged = false;
+      }
+      if (obsMaxT > maxT) {
+        maxT = Math.ceil((obsMaxT * 1.1 + 20) / 50) * 50;
+        defaultScaleUnchanged = false;
+      }
+    }
+
+    if (sampleSs.length > 0) {
+      const obsMinS = Math.min(...sampleSs);
+      const obsMaxS = Math.max(...sampleSs);
+      if (obsMinS < minS) {
+        minS = Math.floor((obsMinS - 0.5) * 2) / 2;
+        defaultScaleUnchanged = false;
+      }
+      if (obsMaxS > maxS) {
+        maxS = Math.ceil(obsMaxS * 1.12);
+        defaultScaleUnchanged = false;
+      }
+    }
+
+    if (samplePs.length > 0) {
+      const obsMaxP = Math.max(...samplePs);
+      if (obsMaxP > maxP) {
+        maxP = Math.ceil(obsMaxP * 1.15);
+        defaultScaleUnchanged = false;
+      }
+    }
+
+    if (sampleVs.length > 0) {
+      const obsMinLogV = Math.log10(Math.max(1e-6, Math.min(...sampleVs)));
+      const obsMaxLogV = Math.log10(Math.max(...sampleVs));
+      if (obsMinLogV < minLogV) minLogV = Math.floor((obsMinLogV - 0.2) * 2) / 2;
+      if (obsMaxLogV > maxLogV) maxLogV = Math.ceil((obsMaxLogV + 0.2) * 2) / 2;
+    }
+  }
+
   const toXTs = (s: number) => padL + ((s - minS) / (maxS - minS || 1)) * (width - padL - padR);
   const toYTs = (T: number) => height - padB - ((T - minT) / (maxT - minT || 1)) * (height - padT - padB);
 
@@ -117,52 +198,137 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   }, '');
 
   // =========================================================================
-  // 2. PSYCHROMETRIC CHART SCALES (Tdb: -10 to 50°C, w: 0 to 30 g/kg)
+  // 2. PSYCHROMETRIC CHART SCALES (with auto-range if out of bounds)
   // =========================================================================
-  const minTdb = -10, maxTdb = 50;
-  const minW = 0, maxW = 30; // g water / kg dry air
-  const toXPsych = (t: number) => padL + ((t - minTdb) / (maxTdb - minTdb)) * (width - padL - padR);
-  const toYPsych = (w_g: number) => height - padB - ((w_g - minW) / (maxW - minW)) * (height - padT - padB);
+  let minTdb = -10, maxTdb = 50;
+  let minW = 0, maxW = 30;
+  if (category === 'PSYCHROMETRICS' && plottedStates.length > 0) {
+    const maxObsTdb = Math.max(...plottedStates.map((s) => s.Tdb ?? s.T));
+    const minObsTdb = Math.min(...plottedStates.map((s) => s.Tdb ?? s.T));
+    const maxObsW = Math.max(...plottedStates.map((s) => (s.w ?? 0) * 1000));
+    if (maxObsTdb > maxTdb) maxTdb = Math.ceil((maxObsTdb + 5) / 10) * 10;
+    if (minObsTdb < minTdb) minTdb = Math.floor((minObsTdb - 5) / 10) * 10;
+    if (maxObsW > maxW) maxW = Math.ceil((maxObsW + 5) / 10) * 10;
+  }
+  const toXPsych = (t: number) => padL + ((t - minTdb) / (maxTdb - minTdb || 1)) * (width - padL - padR);
+  const toYPsych = (w_g: number) => height - padB - ((w_g - minW) / (maxW - minW || 1)) * (height - padT - padB);
 
-  // Saturation and RH curves for Psychrometrics
   const generateRhPath = (rhPercent: number) => {
     const pts: { x: number; y: number }[] = [];
-    for (let t = -10; t <= 50; t += 2) {
-      // Saturation pressure in kPa
+    for (let t = minTdb; t <= maxTdb; t += 2) {
       const pvs = 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
       const pv = (rhPercent / 100) * pvs;
-      const w_kg = 0.62198 * (pv / (101.325 - pv));
-      const w_g = Math.min(30, Math.max(0, w_kg * 1000));
+      const w_kg = 0.62198 * (pv / Math.max(1, 101.325 - pv));
+      const w_g = Math.min(maxW, Math.max(0, w_kg * 1000));
       pts.push({ x: toXPsych(t), y: toYPsych(w_g) });
     }
     return pts.reduce((acc, pt, idx) => idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
   };
 
   // =========================================================================
-  // 3. COMPRESSIBILITY CHART SCALES (Pr: 0 to 10, Z: 0 to 1.2)
+  // 3. COMPRESSIBILITY CHART SCALES (with auto-range if out of bounds)
   // =========================================================================
-  const minPr = 0, maxPr = 10;
-  const minZ = 0, maxZ = 1.2;
-  const toXCompr = (pr: number) => padL + ((pr - minPr) / (maxPr - minPr)) * (width - padL - padR);
-  const toYCompr = (z: number) => height - padB - ((z - minZ) / (maxZ - minZ)) * (height - padT - padB);
+  let minPr = 0, maxPr = 10;
+  let minZ = 0, maxZ = 1.2;
+  if (category === 'COMPRESSIBILITY' && plottedStates.length > 0) {
+    const maxObsPr = Math.max(...plottedStates.map((s) => s.Pr_red ?? s.P));
+    const maxObsZ = Math.max(...plottedStates.map((s) => s.Z ?? 1.0));
+    if (maxObsPr > maxPr) maxPr = Math.ceil(maxObsPr * 1.15);
+    if (maxObsZ > maxZ) maxZ = Math.ceil(maxObsZ * 10 + 1) / 10;
+  }
+  const toXCompr = (pr: number) => padL + ((pr - minPr) / (maxPr - minPr || 1)) * (width - padL - padR);
+  const toYCompr = (z: number) => height - padB - ((z - minZ) / (maxZ - minZ || 1)) * (height - padT - padB);
 
   const generateZCurve = (Tr: number) => {
     const pts: { x: number; y: number }[] = [];
-    for (let pr = 0.05; pr <= 10; pr += 0.2) {
+    const step = maxPr / 50;
+    for (let pr = 0.05; pr <= maxPr; pr += step) {
       const B0 = 0.083 - 0.422 / Math.pow(Tr, 1.6);
       let z = 1 + B0 * (pr / Tr);
       if (pr > 0.6) {
-        z = Math.max(0.15, Math.min(1.2, 1 + B0 * (pr / Tr) + 0.05 * Math.pow(pr / Tr, 2)));
+        z = Math.max(0.15, Math.min(maxZ, 1 + B0 * (pr / Tr) + 0.05 * Math.pow(pr / Tr, 2)));
       }
       pts.push({ x: toXCompr(pr), y: toYCompr(z) });
     }
     return pts.reduce((acc, pt, idx) => idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
   };
 
-  // Plotted states sorted in chronological order (State 1 -> State 2 -> State 3)
-  const plottedStates = [...states]
-    .filter((s) => s.category === category)
-    .sort((a, b) => (a.stateNumber ?? 0) - (b.stateNumber ?? 0) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
+  // Helper: Directional Arrowhead (1 -> 2) at midpoint of a screen-space polyline
+  const renderDirectionArrow = (screenPts: { x: number; y: number }[]) => {
+    if (screenPts.length < 2) return null;
+    const midIdx = Math.floor(screenPts.length / 2);
+    let p1 = screenPts[Math.max(0, midIdx - 1)];
+    let p2 = screenPts[Math.min(screenPts.length - 1, midIdx + 1)];
+    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 4) {
+      p1 = screenPts[0];
+      p2 = screenPts[screenPts.length - 1];
+    }
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (Math.hypot(dx, dy) < 3) return null;
+
+    const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const cx = screenPts[midIdx].x;
+    const cy = screenPts[midIdx].y;
+
+    return (
+      <polygon
+        points="6,0 -5,-4.5 -3,0 -5,4.5"
+        transform={`translate(${cx}, ${cy}) rotate(${angleDeg})`}
+        fill="#dc2626"
+        stroke="#ffffff"
+        strokeWidth="1"
+      />
+    );
+  };
+
+  // Helper: Render Process Curves in T-s coordinates
+  const renderTsProcessCurves = () =>
+    activeCurves.map((c) => {
+      if (c.path.length < 2) return null;
+      const screenPts = c.path.map((pt) => ({ x: toXTs(pt.s), y: toYTs(pt.T) }));
+      const d = screenPts.reduce((acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`), '');
+      const midPt = screenPts[Math.floor(screenPts.length / 2)];
+      return (
+        <g key={c.id}>
+          <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+          {renderDirectionArrow(screenPts)}
+          <circle cx={toXTs(c.state1.s)} cy={toYTs(c.state1.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+          <circle cx={toXTs(c.state2.s)} cy={toYTs(c.state2.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+          <text
+            x={midPt.x}
+            y={midPt.y - 10}
+            fill="#b91c1c"
+            fontSize="9"
+            fontWeight="bold"
+            fontFamily="JetBrains Mono"
+            textAnchor="middle"
+            stroke="#ffffff"
+            strokeWidth="3"
+            paintOrder="stroke fill"
+          >
+            {c.label}
+          </text>
+        </g>
+      );
+    });
+
+  // Grid ticks for T-s and P-v
+  const tTicks = (category === 'WATER' || category === 'AIR' || category === 'IDEAL_GASES') && defaultScaleUnchanged
+    ? (category === 'WATER' ? [100, 200, 300] : [100, 200, 300, 400])
+    : [0.2, 0.4, 0.6, 0.8].map((f) => Math.round(minT + f * (maxT - minT)));
+
+  const sTicks = (category === 'WATER' || category === 'AIR' || category === 'IDEAL_GASES') && defaultScaleUnchanged
+    ? [2, 4, 6, 8]
+    : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minS + f * (maxS - minS)).toFixed(2)));
+
+  const pTicks = category === 'WATER' && maxP === 25
+    ? [5, 10, 15, 20]
+    : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minP + f * (maxP - minP)).toFixed(2)));
+
+  const idealGasFormula = category === 'IDEAL_GASES'
+    ? (GAS_CATALOG[currentSubstance]?.formula || currentSubstance.toUpperCase())
+    : '';
 
   return (
     <div className="bg-white border-2 border-slate-900 p-3 sm:p-5 shadow-sm space-y-3 font-mono flex flex-col justify-between h-full">
@@ -171,11 +337,11 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
         <div>
           <h3 className="font-bold text-slate-900 text-xs sm:text-sm uppercase tracking-tight">
             {category === 'PSYCHROMETRICS'
-              ? 'Carta Psicrométrica (Psychrometric Chart)'
+              ? 'Carta Psicrométrica (Ar Úmido)'
               : category === 'COMPRESSIBILITY'
               ? 'Carta Generalizada de Compressibilidade (Z vs. Pr)'
               : category === 'AIR' || category === 'IDEAL_GASES'
-              ? `Diagrama T - s (${category === 'AIR' ? 'Ar' : 'Gás Ideal'})`
+              ? `Diagrama T - s (${category === 'AIR' ? 'Ar' : `Gás Ideal — ${idealGasFormula}`})`
               : diagramType === 'Ts' ? 'Diagrama T - s' : 'Diagrama P - v'}
           </h3>
           <p className="text-[10px] text-slate-500 font-mono">
@@ -196,7 +362,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           <div className="flex items-center bg-white border border-slate-400 p-0.5 text-xs">
             <button
               onClick={() => setDiagramType('Ts')}
-              className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
+              className={`px-3 py-1 transition-colors uppercase font-bold text-xs cursor-pointer ${
                 diagramType === 'Ts'
                   ? 'bg-black text-white shadow-xs'
                   : 'text-slate-700 hover:text-black hover:bg-slate-100'
@@ -207,7 +373,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
             </button>
             <button
               onClick={() => setDiagramType('Pv')}
-              className={`px-3 py-1 transition-colors uppercase font-bold text-xs ${
+              className={`px-3 py-1 transition-colors uppercase font-bold text-xs cursor-pointer ${
                 diagramType === 'Pv'
                   ? 'bg-black text-white shadow-xs'
                   : 'text-slate-700 hover:text-black hover:bg-slate-100'
@@ -220,7 +386,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
         )}
       </div>
 
-      {/* SVG Canvas with Clean Engineering Look and Halo Anti-Collision */}
+      {/* SVG Canvas */}
       <div className="bg-white border border-slate-300 p-1 flex items-center justify-center overflow-hidden">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-h-[360px]">
           {/* Main Coordinate Axes */}
@@ -246,8 +412,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
              ========================================================================= */}
           {category === 'PSYCHROMETRICS' && (
             <>
-              {/* Horizontal w Gridlines */}
-              {[5, 10, 15, 20, 25, 30].map((wg) => (
+              {[1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1].map((f) => Math.round(f * maxW)).map((wg) => (
                 <g key={wg}>
                   <line
                     x1={padL}
@@ -270,8 +435,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Vertical Tdb Gridlines */}
-              {[-10, 0, 10, 20, 30, 40, 50].map((t) => (
+              {Array.from({ length: Math.round((maxTdb - minTdb) / 10) + 1 }, (_, i) => minTdb + i * 10).map((t) => (
                 <g key={t}>
                   <line
                     x1={toXPsych(t)}
@@ -294,7 +458,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Relative Humidity Curves (10%, 30%, 50%, 70%, 100%) */}
               {[10, 30, 50, 70, 100].map((rh) => (
                 <g key={rh}>
                   <path
@@ -304,10 +467,9 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                     strokeWidth={rh === 100 ? '2' : '1'}
                     strokeDasharray={rh === 100 ? 'none' : '3 3'}
                   />
-                  {/* RH Curve Label */}
                   <text
-                    x={toXPsych(38)}
-                    y={toYPsych(Math.min(28, (rh / 100) * 45))}
+                    x={toXPsych(Math.min(maxTdb - 8, 38))}
+                    y={toYPsych(Math.min(maxW - 2, (rh / 100) * 45))}
                     fill={rh === 100 ? '#0284c7' : '#64748b'}
                     fontSize="8"
                     fontWeight="bold"
@@ -320,7 +482,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Plotted Psychrometric State Points */}
               {plottedStates.map((st, idx) => {
                 const cx = toXPsych(st.Tdb ?? st.T);
                 const cy = toYPsych((st.w ?? 0) * 1000);
@@ -351,7 +512,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axis Labels */}
               <text
                 x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
@@ -373,7 +533,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 fontFamily="sans-serif"
                 fontWeight="600"
               >
-                Razão de Umidade, w [g água / kg ar seco]
+                Razão de Umidade, ω [g água / kg ar seco]
               </text>
             </>
           )}
@@ -383,8 +543,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
              ========================================================================= */}
           {category === 'COMPRESSIBILITY' && (
             <>
-              {/* Horizontal Z Gridlines */}
-              {[0.2, 0.4, 0.6, 0.8, 1.0, 1.2].map((z) => (
+              {[0.2, 0.4, 0.6, 0.8, 1.0, 1.2].filter((z) => z <= maxZ + 0.01).map((z) => (
                 <g key={z}>
                   <line
                     x1={padL}
@@ -408,8 +567,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Vertical Pr Gridlines */}
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pr) => (
+              {[0.2, 0.4, 0.6, 0.8, 1.0].map((f) => Number((f * maxPr).toFixed(1))).map((pr) => (
                 <g key={pr}>
                   <line
                     x1={toXCompr(pr)}
@@ -432,7 +590,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Reduced Isotherms (Tr = 0.8, 1.0, 1.2, 1.5, 2.0) */}
               {[0.8, 1.0, 1.2, 1.5, 2.0].map((tr) => (
                 <g key={tr}>
                   <path
@@ -442,8 +599,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                     strokeWidth="1.5"
                   />
                   <text
-                    x={toXCompr(7.5)}
-                    y={toYCompr(Math.min(1.15, 1 + (0.083 - 0.422 / Math.pow(tr, 1.6)) * (7.5 / tr))) - 4}
+                    x={toXCompr(maxPr * 0.75)}
+                    y={toYCompr(Math.min(maxZ - 0.05, 1 + (0.083 - 0.422 / Math.pow(tr, 1.6)) * ((maxPr * 0.75) / tr))) - 4}
                     fill="#0284c7"
                     fontSize="8"
                     fontWeight="bold"
@@ -456,7 +613,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Plotted States */}
               {plottedStates.map((st, idx) => {
                 const cx = toXCompr(st.Pr_red ?? st.P);
                 const cy = toYCompr(st.Z ?? 1.0);
@@ -487,7 +643,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axis Labels */}
               <text
                 x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
@@ -515,12 +670,11 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           )}
 
           {/* =========================================================================
-              VIEW C: AIR & IDEAL GASES (T-s DIAGRAM)
+              VIEW C: AIR & IDEAL GASES (T-s DIAGRAM WITH PROCESS CURVES)
              ========================================================================= */}
           {(category === 'AIR' || category === 'IDEAL_GASES') && (
             <>
-              {/* Horizontal T Grid */}
-              {[100, 200, 300, 400].map((T) => (
+              {tTicks.map((T) => (
                 <g key={T}>
                   <line
                     x1={padL}
@@ -543,8 +697,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Vertical s Grid */}
-              {[2, 4, 6, 8].map((s) => (
+              {sTicks.map((s) => (
                 <g key={s}>
                   <line
                     x1={toXTs(s)}
@@ -567,9 +720,32 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 </g>
               ))}
 
-              {/* Plotted States with Clean Non-overlapping Badges */}
+              {/* Plotted Thermodynamic Process Curves (T-s) */}
+              {renderTsProcessCurves()}
+
+              {/* Dashed state connectors when no process curve is plotted */}
+              {activeCurves.length === 0 &&
+                plottedStates.map((st, i) => {
+                  if (i === 0) return null;
+                  const prev = plottedStates[i - 1];
+                  if (!Number.isFinite(prev.s) || !Number.isFinite(prev.T) || !Number.isFinite(st.s) || !Number.isFinite(st.T)) return null;
+                  return (
+                    <line
+                      key={`air-line-${i}`}
+                      x1={toXTs(prev.s)}
+                      y1={toYTs(prev.T)}
+                      x2={toXTs(st.s)}
+                      y2={toYTs(st.T)}
+                      stroke="#0f172a"
+                      strokeWidth="1.5"
+                      strokeDasharray="4 2"
+                    />
+                  );
+                })}
+
+              {/* Plotted States */}
               {plottedStates.map((st, idx) => {
-                const cx = toXTs(st.s || 6.8);
+                const cx = toXTs(st.s ?? 6.8);
                 const cy = toYTs(st.T);
                 return (
                   <g key={st.id}>
@@ -598,7 +774,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axis Labels */}
               <text
                 x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
@@ -626,67 +801,61 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           )}
 
           {/* =========================================================================
-              VIEW D: FLUIDS (WATER, REFRIGERANTS, CRYOGENICS)
+              VIEW D: FLUIDS (WATER, REFRIGERANTS, CRYOGENICS) T-s DIAGRAM
              ========================================================================= */}
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Ts' && (
             <>
-              {/* T Horizontal Grid Lines */}
-              {(category === 'WATER' ? [100, 200, 300] : [0.2, 0.4, 0.6, 0.8].map((f) => Math.round(minT + f * (maxT - minT)))).map((T) => {
-                return (
-                  <g key={T}>
-                    <line
-                      x1={padL}
-                      y1={toYTs(T)}
-                      x2={width - padR}
-                      y2={toYTs(T)}
-                      stroke="#e2e8f0"
-                      strokeDasharray="2 2"
-                    />
-                    <text
-                      x={padL - 8}
-                      y={toYTs(T) + 4}
-                      fill="#64748b"
-                      fontSize="10"
-                      textAnchor="end"
-                      fontFamily="JetBrains Mono"
-                    >
-                      {T}°C
-                    </text>
-                  </g>
-                );
-              })}
+              {tTicks.map((T) => (
+                <g key={T}>
+                  <line
+                    x1={padL}
+                    y1={toYTs(T)}
+                    x2={width - padR}
+                    y2={toYTs(T)}
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={padL - 8}
+                    y={toYTs(T) + 4}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {T}°C
+                  </text>
+                </g>
+              ))}
 
-              {/* s Vertical Grid Lines */}
-              {(category === 'WATER' ? [2, 4, 6, 8] : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minS + f * (maxS - minS)).toFixed(2)))).map((s) => {
-                return (
-                  <g key={s}>
-                    <line
-                      x1={toXTs(s)}
-                      y1={padT}
-                      x2={toXTs(s)}
-                      y2={height - padB}
-                      stroke="#e2e8f0"
-                      strokeDasharray="2 2"
-                    />
-                    <text
-                      x={toXTs(s)}
-                      y={height - padB + 16}
-                      fill="#64748b"
-                      fontSize="10"
-                      textAnchor="middle"
-                      fontFamily="JetBrains Mono"
-                    >
-                      {s}
-                    </text>
-                  </g>
-                );
-              })}
+              {sTicks.map((s) => (
+                <g key={s}>
+                  <line
+                    x1={toXTs(s)}
+                    y1={padT}
+                    x2={toXTs(s)}
+                    y2={height - padB}
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={toXTs(s)}
+                    y={height - padB + 16}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {s}
+                  </text>
+                </g>
+              ))}
 
               {/* T-s Saturation Dome */}
               <path d={domePathTs} fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="square" />
               <path d={`${domePathTs} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
-              {/* Critical Point Marker (T-s) with White Halo to prevent overlapping curve */}
+              {/* Critical Point Marker */}
               <circle cx={toXTs(critS)} cy={toYTs(critT)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
                 x={toXTs(critS)}
@@ -703,63 +872,30 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 PONTO CRÍTICO
               </text>
 
-              {/* CATT3 Plotted Thermodynamic Process Curves (T-s) */}
-              {processCurves
-                .filter((c) => c.category === category)
-                .map((c) => {
-                  if (c.path.length < 2) return null;
-                  const d = c.path.reduce((acc, pt, idx) => {
-                    const x = toXTs(pt.s);
-                    const y = toYTs(pt.T);
-                    return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
-                  }, '');
-                  const midPt = c.path[Math.floor(c.path.length / 2)];
-                  const midX = toXTs(midPt.s);
-                  const midY = toYTs(midPt.T);
+              {/* Plotted Thermodynamic Process Curves (T-s) */}
+              {renderTsProcessCurves()}
+
+              {/* Dashed state connectors when no process curve is plotted */}
+              {activeCurves.length === 0 &&
+                plottedStates.map((st, i) => {
+                  if (i === 0) return null;
+                  const prev = plottedStates[i - 1];
+                  if (!Number.isFinite(prev.s) || !Number.isFinite(prev.T) || !Number.isFinite(st.s) || !Number.isFinite(st.T)) return null;
                   return (
-                    <g key={c.id}>
-                      <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
-                      <circle cx={toXTs(c.state1.s)} cy={toYTs(c.state1.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
-                      <circle cx={toXTs(c.state2.s)} cy={toYTs(c.state2.T)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
-                      <text
-                        x={midX}
-                        y={midY - 8}
-                        fill="#b91c1c"
-                        fontSize="9"
-                        fontWeight="bold"
-                        fontFamily="JetBrains Mono"
-                        textAnchor="middle"
-                        stroke="#ffffff"
-                        strokeWidth="3"
-                        paintOrder="stroke fill"
-                      >
-                        {c.label}
-                      </text>
-                    </g>
+                    <line
+                      key={`line-${i}`}
+                      x1={toXTs(prev.s)}
+                      y1={toYTs(prev.T)}
+                      x2={toXTs(st.s)}
+                      y2={toYTs(st.T)}
+                      stroke="#0f172a"
+                      strokeWidth="1.5"
+                      strokeDasharray="4 2"
+                    />
                   );
                 })}
 
-              {/* Process Lines connecting states */}
-              {plottedStates.map((st, i) => {
-                if (i === 0) return null;
-                const prev = plottedStates[i - 1];
-                if (prev.s === undefined || isNaN(prev.s) || prev.T === undefined || isNaN(prev.T) ||
-                    st.s === undefined || isNaN(st.s) || st.T === undefined || isNaN(st.T)) return null;
-                return (
-                  <line
-                    key={`line-${i}`}
-                    x1={toXTs(prev.s)}
-                    y1={toYTs(prev.T)}
-                    x2={toXTs(st.s)}
-                    y2={toYTs(st.T)}
-                    stroke="#0f172a"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 2"
-                  />
-                );
-              })}
-
-              {/* Plotted State Points with Non-overlapping Badges */}
+              {/* Plotted State Points */}
               {plottedStates.map((st, idx) => {
                 const cx = toXTs(st.s);
                 const cy = toYTs(st.T);
@@ -790,7 +926,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axes Labels with safe margin */}
               <text
                 x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
@@ -822,33 +957,29 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
              ========================================================================= */}
           {(category === 'WATER' || category === 'REFRIGERANTS' || category === 'CRYOGENICS') && diagramType === 'Pv' && (
             <>
-              {/* P Horizontal Grid Lines */}
-              {(category === 'WATER' ? [5, 10, 15, 20] : [0.2, 0.4, 0.6, 0.8].map((f) => Number((minP + f * (maxP - minP)).toFixed(2)))).map((P) => {
-                return (
-                  <g key={P}>
-                    <line
-                      x1={padL}
-                      y1={toYPv(P)}
-                      x2={width - padR}
-                      y2={toYPv(P)}
-                      stroke="#e2e8f0"
-                      strokeDasharray="2 2"
-                    />
-                    <text
-                      x={padL - 8}
-                      y={toYPv(P) + 4}
-                      fill="#64748b"
-                      fontSize="10"
-                      textAnchor="end"
-                      fontFamily="JetBrains Mono"
-                    >
-                      {P} MPa
-                    </text>
-                  </g>
-                );
-              })}
+              {pTicks.map((P) => (
+                <g key={P}>
+                  <line
+                    x1={padL}
+                    y1={toYPv(P)}
+                    x2={width - padR}
+                    y2={toYPv(P)}
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <text
+                    x={padL - 8}
+                    y={toYPv(P) + 4}
+                    fill="#64748b"
+                    fontSize="10"
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono"
+                  >
+                    {P} MPa
+                  </text>
+                </g>
+              ))}
 
-              {/* v Vertical Grid Lines (Log Scale) */}
               {Array.from({ length: Math.max(1, Math.floor(maxLogV) - Math.ceil(minLogV) + 1) }, (_, i) => {
                 const p = Math.ceil(minLogV) + i;
                 const val = Math.pow(10, p);
@@ -881,7 +1012,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
               <path d={domePathPv} fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="square" />
               <path d={`${domePathPv} Z`} fill="rgba(2, 132, 199, 0.05)" />
 
-              {/* Critical Point Marker (P-v) with halo */}
+              {/* Critical Point Marker (P-v) */}
               <circle cx={toXPv(critV)} cy={toYPv(critP)} r="3.5" fill="#0f172a" stroke="#ffffff" strokeWidth="1" />
               <text
                 x={toXPv(critV)}
@@ -898,63 +1029,57 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 PONTO CRÍTICO
               </text>
 
-              {/* CATT3 Plotted Thermodynamic Process Curves (P-v) */}
-              {processCurves
-                .filter((c) => c.category === category)
-                .map((c) => {
-                  if (c.path.length < 2) return null;
-                  const d = c.path.reduce((acc, pt, idx) => {
-                    const x = toXPv(pt.v);
-                    const y = toYPv(pt.P * 0.1);
-                    return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
-                  }, '');
-                  const midPt = c.path[Math.floor(c.path.length / 2)];
-                  const midX = toXPv(midPt.v);
-                  const midY = toYPv(midPt.P * 0.1);
-                  return (
-                    <g key={c.id}>
-                      <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
-                      <circle cx={toXPv(c.state1.v)} cy={toYPv(c.state1.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
-                      <circle cx={toXPv(c.state2.v)} cy={toYPv(c.state2.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
-                      <text
-                        x={midX}
-                        y={midY - 8}
-                        fill="#b91c1c"
-                        fontSize="9"
-                        fontWeight="bold"
-                        fontFamily="JetBrains Mono"
-                        textAnchor="middle"
-                        stroke="#ffffff"
-                        strokeWidth="3"
-                        paintOrder="stroke fill"
-                      >
-                        {c.label}
-                      </text>
-                    </g>
-                  );
-                })}
-
-              {/* Process Lines connecting states */}
-              {plottedStates.map((st, i) => {
-                if (i === 0) return null;
-                const prev = plottedStates[i - 1];
-                if (prev.v === undefined || isNaN(prev.v) || prev.P_MPa === undefined || isNaN(prev.P_MPa) ||
-                    st.v === undefined || isNaN(st.v) || st.P_MPa === undefined || isNaN(st.P_MPa)) return null;
+              {/* Plotted Thermodynamic Process Curves (P-v) with Directional Arrowhead */}
+              {activeCurves.map((c) => {
+                if (c.path.length < 2) return null;
+                const screenPts = c.path.map((pt) => ({ x: toXPv(pt.v), y: toYPv(pt.P * 0.1) }));
+                const d = screenPts.reduce((acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`), '');
+                const midPt = screenPts[Math.floor(screenPts.length / 2)];
                 return (
-                  <line
-                    key={`line-${i}`}
-                    x1={toXPv(prev.v)}
-                    y1={toYPv(prev.P_MPa)}
-                    x2={toXPv(st.v)}
-                    y2={toYPv(st.P_MPa)}
-                    stroke="#0f172a"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 2"
-                  />
+                  <g key={c.id}>
+                    <path d={d} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                    {renderDirectionArrow(screenPts)}
+                    <circle cx={toXPv(c.state1.v)} cy={toYPv(c.state1.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                    <circle cx={toXPv(c.state2.v)} cy={toYPv(c.state2.P_MPa)} r="4.5" fill="#dc2626" stroke="#ffffff" strokeWidth="1.5" />
+                    <text
+                      x={midPt.x}
+                      y={midPt.y - 10}
+                      fill="#b91c1c"
+                      fontSize="9"
+                      fontWeight="bold"
+                      fontFamily="JetBrains Mono"
+                      textAnchor="middle"
+                      stroke="#ffffff"
+                      strokeWidth="3"
+                      paintOrder="stroke fill"
+                    >
+                      {c.label}
+                    </text>
+                  </g>
                 );
               })}
 
-              {/* Plotted State Points with clean badges */}
+              {/* Dashed state connectors when no process curve is plotted */}
+              {activeCurves.length === 0 &&
+                plottedStates.map((st, i) => {
+                  if (i === 0) return null;
+                  const prev = plottedStates[i - 1];
+                  if (!Number.isFinite(prev.v) || !Number.isFinite(prev.P_MPa) || !Number.isFinite(st.v) || !Number.isFinite(st.P_MPa)) return null;
+                  return (
+                    <line
+                      key={`line-${i}`}
+                      x1={toXPv(prev.v)}
+                      y1={toYPv(prev.P_MPa)}
+                      x2={toXPv(st.v)}
+                      y2={toYPv(st.P_MPa)}
+                      stroke="#0f172a"
+                      strokeWidth="1.5"
+                      strokeDasharray="4 2"
+                    />
+                  );
+                })}
+
+              {/* Plotted State Points */}
               {plottedStates.map((st, idx) => {
                 const cx = toXPv(st.v);
                 const cy = toYPv(st.P_MPa);
@@ -985,7 +1110,6 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 );
               })}
 
-              {/* Axes Labels */}
               <text
                 x={(width - padL - padR) / 2 + padL}
                 y={height - 12}
@@ -1015,39 +1139,86 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
       </div>
 
       {/* Legend & Stats */}
-      <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-sky-600 inline-block"></span>
-            {category === 'PSYCHROMETRICS'
-              ? 'Curvas de Saturação e UR'
-              : category === 'COMPRESSIBILITY'
-              ? 'Isotermas Reduzidas (Tr)'
-              : 'Domo de Saturação'}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-black inline-block"></span>
-            Estados Registrados
-          </span>
-          {processCurves.filter((c) => c.category === category).length > 0 && (
-            <span className="flex items-center gap-1.5 text-rose-700 font-bold">
-              <span className="w-3 h-0.5 bg-rose-600 inline-block"></span>
-              Processos Traçados ({processCurves.filter((c) => c.category === category).length})
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono flex-wrap gap-2">
+          <div className="flex items-center gap-4 flex-wrap">
+            {category !== 'AIR' && category !== 'IDEAL_GASES' && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-sky-600 inline-block"></span>
+                {category === 'PSYCHROMETRICS'
+                  ? 'Curvas de Saturação e UR'
+                  : category === 'COMPRESSIBILITY'
+                  ? 'Isotermas Reduzidas (Tr)'
+                  : 'Domo de Saturação'}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-black inline-block"></span>
+              Estados Registrados
             </span>
-          )}
+            {activeCurves.length > 0 && (
+              <span className="flex items-center gap-1.5 text-rose-700 font-bold">
+                <span className="w-3 h-0.5 bg-rose-600 inline-block"></span>
+                Processos Traçados ({activeCurves.length})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {activeCurves.length > 0 && onClearProcessCurves && (
+              <button
+                onClick={onClearProcessCurves}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-bold text-[10px] uppercase cursor-pointer"
+                title="Limpar processos traçados desta substância"
+              >
+                Limpar Traçado
+              </button>
+            )}
+            <span>Total: {plottedStates.length} ponto(s) plotados</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {processCurves.filter((c) => c.category === category).length > 0 && onClearProcessCurves && (
-            <button
-              onClick={onClearProcessCurves}
-              className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-bold text-[10px] uppercase cursor-pointer"
-              title="Limpar todos os processos traçados no diagrama"
-            >
-              Limpar Traçado
-            </button>
-          )}
-          <span>Total: {plottedStates.length} ponto(s) plotados</span>
-        </div>
+
+        {/* Plotted Processes Summary Strip (Work w & Heat q) */}
+        {activeCurves.length > 0 && (
+          <div className="border border-slate-300 bg-slate-50 px-2.5 py-1.5 space-y-1 text-[11px]">
+            {activeCurves.map((c, idx) => {
+              const mm = c.state1.molarMass ?? 18.015;
+              const wDisp = UnitConverter.fromInternalEnergy(c.work, units.h, mm).toLocaleString('pt-BR', {
+                useGrouping: false,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+              const qDisp = UnitConverter.fromInternalEnergy(c.heat, units.h, mm).toLocaleString('pt-BR', {
+                useGrouping: false,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+              return (
+                <div key={c.id} className="flex items-center justify-between gap-2 border-b last:border-b-0 border-slate-200 pb-0.5 last:pb-0">
+                  <span className="font-bold text-rose-800 truncate">
+                    P{idx + 1}: {c.label}
+                  </span>
+                  <div className="flex items-center gap-3 shrink-0 text-slate-800">
+                    <span>
+                      w = <strong>{wDisp} {units.h}</strong>
+                    </span>
+                    <span>
+                      q = <strong>{qDisp} {units.h}</strong>
+                    </span>
+                    {onDeleteProcessCurve && (
+                      <button
+                        onClick={() => onDeleteProcessCurve(c.id)}
+                        className="text-slate-400 hover:text-rose-700 cursor-pointer"
+                        title="Remover este processo"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
