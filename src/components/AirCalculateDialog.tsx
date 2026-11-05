@@ -103,7 +103,7 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
         {/* Title Bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Propriedades do Ar (Tabela de Ar CATT3)
+            Propriedades do Ar (Tabela A-17)
           </span>
           <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
             <X className="w-4 h-4 text-slate-800" />
@@ -290,7 +290,7 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na Tabela de Ar do CATT3, você pode definir uma propriedade conhecida (Temperatura, Energia, Entalpia, s°, Pr ou vr) junto com a pressão do estado para obter todas as demais propriedades.')}
+            onClick={() => alert('Na Tabela de Ar do EntroLab, você pode definir uma propriedade conhecida (Temperatura, Energia, Entalpia, s°, Pr ou vr) junto com a pressão do estado para obter todas as demais propriedades.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

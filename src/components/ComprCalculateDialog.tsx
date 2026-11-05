@@ -57,7 +57,7 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
         {/* Title Bar */}
         <div className="flex items-center justify-between border-b border-slate-400 pb-2">
           <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-            Compressibilidade Generalizada (CATT3)
+            Compressibilidade Generalizada (Lee-Kesler)
           </span>
           <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400">
             <X className="w-4 h-4 text-slate-800" />

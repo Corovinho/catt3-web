@@ -52,7 +52,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
                 Professor Luiz Mariano Pereira — Padrão Didático e Científico para Engenharia
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Desenvolvido com fidelidade ao padrão clássico CATT3 (Computer-Aided Thermodynamic Tables 3, Sonntag &amp; Borgnakke).
+                Plataforma computacional de alta precisão para análise de estados e processos termodinâmicos.
               </p>
             </div>
           </div>
@@ -86,7 +86,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
           </div>
 
           <div className="bg-slate-50 border border-slate-300 p-2 text-[10px] text-slate-600 font-mono">
-            <strong>Compatibilidade:</strong> 100% dos recursos do padrão CATT3 (modos de cálculo completos, conversor de 5 sistemas de unidades, traçador de 9 processos termodinâmicos, exportação CSV e gráficos interativos T-s e P-v).
+            <strong>Recursos Integrados:</strong> Modos de cálculo completos, conversor de 5 sistemas de unidades, traçador de 9 processos termodinâmicos, exportação CSV e diagramas interativos T-s e P-v.
           </div>
         </div>
 
