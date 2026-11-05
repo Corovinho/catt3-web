@@ -50,12 +50,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">EntroLab</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-300 tracking-tight whitespace-nowrap hidden sm:inline-block">
-                Professor Luiz Mariano Pereira
-              </span>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-300 sm:hidden">
-                Prof. Luiz Mariano
-              </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Tabelas Termodinâmicas Computacionais &bull; Padrão CATT3</p>
           </div>
