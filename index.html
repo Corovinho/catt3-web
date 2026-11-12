@@ -3,15 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>CATT-Web | Tabelas Termodinâmicas Computacionais</title>
+    <meta name="application-name" content="CATT-Web" />
+    <meta name="apple-mobile-web-app-title" content="CATT-Web" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <link rel="canonical" href="https://catt-web.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CATT-Web" />
+    <meta property="og:title" content="CATT-Web | Tabelas Termodinâmicas Computacionais" />
+    <meta property="og:description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <meta property="og:url" content="https://catt-web.vercel.app/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="CATT-Web | Tabelas Termodinâmicas Computacionais" />
+    <meta name="twitter:description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <script>
+      (function () {
+        var host = window.location.hostname;
+        if (
+          host === 'catt3-web.vercel.app' ||
+          host === 'entrolab-web.vercel.app' ||
+          host === 'entrolab-app.vercel.app'
+        ) {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker
+              .getRegistrations()
+              .then(function (regs) {
+                for (var i = 0; i < regs.length; i++) regs[i].unregister();
+              })
+              .catch(function () {});
+          }
+          window.location.replace(
+            'https://catt-web.vercel.app' +
+              window.location.pathname +
+              window.location.search +
+              window.location.hash
+          );
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>CATT-Web | Tabelas Termodinâmicas Computacionais</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-black selection:text-white">
     <div id="root"></div>
