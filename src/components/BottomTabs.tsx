@@ -148,7 +148,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({
       {/* Bottom Status bar */}
       <div className="px-3 py-1 bg-[#f0f0f0] border-t border-slate-300 text-[11px] text-slate-700 flex items-center justify-between">
         <span>{statusText || 'Pronto para calcular.'}</span>
-        <span className="text-slate-500 text-[10px]">EntroLab &bull; IAPWS-IF97 &bull; NIST &bull; ASHRAE</span>
+        <span className="text-slate-500 text-[10px]">CATT-Web &bull; IAPWS-IF97 &bull; NIST &bull; ASHRAE</span>
       </div>
     </div>
   );

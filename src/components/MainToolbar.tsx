@@ -302,13 +302,13 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
                 onClick={() => { closeMenu(); onOpenAbout?.(); }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"
               >
-                Sobre o EntroLab...
+                Sobre o CATT-Web...
               </button>
               <button
                 onClick={() => {
                   closeMenu();
                   alert(
-                    'Instruções de Uso do EntroLab:\n1. Selecione a substância desejada no menu "Tabelas / Substâncias" ou nas abas inferiores.\n2. Clique em "Calcular" (ou pressione F2) para abrir o diálogo de propriedades e inserir as variáveis conhecidas.\n3. O estado será plotado no diagrama (T-s ou P-v) e registrado na tabela de histórico abaixo.\n4. Utilize "Processo" para traçar transformações termodinâmicas (isotérmica, isobárica, isentrópica, politrópica, etc.).'
+                    'Instruções de Uso do CATT-Web:\n1. Selecione a substância desejada no menu "Tabelas / Substâncias" ou nas abas inferiores.\n2. Clique em "Calcular" (ou pressione F2) para abrir o diálogo de propriedades e inserir as variáveis conhecidas.\n3. O estado será plotado no diagrama (T-s ou P-v) e registrado na tabela de histórico abaixo.\n4. Utilize "Processo" para traçar transformações termodinâmicas (isotérmica, isobárica, isentrópica, politrópica, etc.).'
                   );
                 }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"

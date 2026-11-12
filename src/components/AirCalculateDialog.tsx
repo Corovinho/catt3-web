@@ -290,7 +290,7 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na Tabela de Ar do EntroLab, você pode definir uma propriedade conhecida (Temperatura, Energia, Entalpia, s°, Pr ou vr) junto com a pressão do estado para obter todas as demais propriedades.')}
+            onClick={() => alert('Na Tabela de Ar do CATT-Web, você pode definir uma propriedade conhecida (Temperatura, Energia, Entalpia, s°, Pr ou vr) junto com a pressão do estado para obter todas as demais propriedades.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

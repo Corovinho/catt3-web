@@ -91,7 +91,7 @@ export const TablesSubstancesModal: React.FC<TablesSubstancesModalProps> = ({
         <div className="flex items-center justify-between border-b border-slate-300 px-4 py-3 bg-[#e8e8e8]">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-              Menu de Tabelas e Substâncias — EntroLab
+              Menu de Tabelas e Substâncias — CATT-Web
             </span>
           </div>
           <button

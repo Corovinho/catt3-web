@@ -29,7 +29,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
           <div className="flex items-center gap-2">
             <Award className="w-4 h-4 text-black" />
             <span className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-              Sobre o EntroLab — Tabelas Termodinâmicas
+              Sobre o CATT-Web — Tabelas Termodinâmicas
             </span>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-300 border border-slate-400 cursor-pointer">
@@ -41,12 +41,12 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => 
         <div className="border border-slate-400 bg-white p-4 space-y-3 text-xs">
           <div className="flex items-start gap-3 border-b border-slate-200 pb-3">
             <div className="w-12 h-12 bg-black text-white flex flex-col items-center justify-center font-bold text-[10px] leading-tight tracking-tight border border-slate-900 shrink-0">
-              <span>ENTRO</span>
-              <span>LAB</span>
+              <span>CATT</span>
+              <span>WEB</span>
             </div>
             <div>
               <h4 className="font-bold text-sm text-slate-950 uppercase">
-                EntroLab — Tabelas Termodinâmicas Computacionais
+                CATT-Web — Tabelas Termodinâmicas Computacionais
               </h4>
               <p className="text-[11px] text-slate-600 font-bold">
                 Professor Luiz Mariano Pereira — Padrão Didático e Científico para Engenharia

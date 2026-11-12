@@ -279,7 +279,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na Psicrometria do EntroLab, você pode fornecer qualquer par de propriedades psicrométricas independentes (Bulbo Seco com Umidade Relativa, Bulbo Úmido, Ponto de Orvalho ou Razão de Umidade) sob a pressão total desejada.')}
+            onClick={() => alert('Na Psicrometria do CATT-Web, você pode fornecer qualquer par de propriedades psicrométricas independentes (Bulbo Seco com Umidade Relativa, Bulbo Úmido, Ponto de Orvalho ou Razão de Umidade) sob a pressão total desejada.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

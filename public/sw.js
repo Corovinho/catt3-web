@@ -1,4 +1,4 @@
-const CACHE_NAME = 'entrolab-cache-v5';
+const CACHE_NAME = 'catt-web-cache-v6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

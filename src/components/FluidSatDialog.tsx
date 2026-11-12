@@ -316,7 +316,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('No modo Propriedades de Saturação do EntroLab, informe a Temperatura ou Pressão no domo de vapor e defina a condição da mistura (título x, líquido saturado ou vapor saturado). Os limites de saturação vf, vg, hf, hg, sf e sg serão calculados.')}
+            onClick={() => alert('No modo Propriedades de Saturação do CATT-Web, informe a Temperatura ou Pressão no domo de vapor e defina a condição da mistura (título x, líquido saturado ou vapor saturado). Os limites de saturação vf, vg, hf, hg, sf e sg serão calculados.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

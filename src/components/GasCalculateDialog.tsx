@@ -341,7 +341,7 @@ export const GasCalculateDialog: React.FC<GasCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na aba de Gases Ideais do EntroLab, você pode informar qualquer par independente (T e P, u e P, h e P, s° e P, s e P, v e P ou T e v) para obter todas as propriedades termodinâmicas via polinômios NIST Shomate.')}
+            onClick={() => alert('Na aba de Gases Ideais do CATT-Web, você pode informar qualquer par independente (T e P, u e P, h e P, s° e P, s e P, v e P ou T e v) para obter todas as propriedades termodinâmicas via polinômios NIST Shomate.')}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />
