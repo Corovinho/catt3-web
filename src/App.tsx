@@ -72,7 +72,7 @@ export const App: React.FC = () => {
   const [currentState, setCurrentState] = useState<ThermodynamicState | null>(null);
   const [statesLog, setStatesLog] = useState<ThermodynamicState[]>(() => {
     try {
-      const saved = localStorage.getItem('entrolab_states_log') || localStorage.getItem('catt3_states_log');
+      const saved = localStorage.getItem('catt_web_states_log') || localStorage.getItem('catt3_states_log');
       if (!saved) return [];
       const parsed: ThermodynamicState[] = JSON.parse(saved);
       return Array.isArray(parsed)
@@ -86,7 +86,7 @@ export const App: React.FC = () => {
   // Save to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('entrolab_states_log', JSON.stringify(statesLog));
+      localStorage.setItem('catt_web_states_log', JSON.stringify(statesLog));
     } catch {
       // ignore
     }
@@ -535,7 +535,7 @@ export const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `EntroLab_Estados_${Date.now()}.csv`);
+    link.setAttribute('download', `CATT-Web_Estados_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
