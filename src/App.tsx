@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   CalcMode,
   SubstanceCategory,
@@ -418,7 +418,7 @@ export const App: React.FC = () => {
       setCurrentState(st);
       handleAddStateToLog(st);
     } catch (err: any) {
-      alert(err.message || 'Erro ao calcular propriedades de saturação.');
+      alert(err.message || 'Erro ao calcular propriedades de saturaÃ§Ã£o.');
     }
   };
 
@@ -450,7 +450,7 @@ export const App: React.FC = () => {
       setCurrentState(st);
       handleAddStateToLog(st);
     } catch (err: any) {
-      alert(err.message || 'Erro ao calcular propriedades do gás ideal.');
+      alert(err.message || 'Erro ao calcular propriedades do gÃ¡s ideal.');
     }
   };
 
@@ -481,13 +481,13 @@ export const App: React.FC = () => {
       setCurrentState(st);
       handleAddStateToLog(st);
     } catch (err: any) {
-      alert(err.message || 'Erro ao calcular propriedades psicrométricas.');
+      alert(err.message || 'Erro ao calcular propriedades psicromÃ©tricas.');
     }
   };
 
   const handleClearLog = () => {
     if (activeStates.length === 0) return;
-    if (confirm('Deseja limpar os estados avaliados desta substância?')) {
+    if (confirm('Deseja limpar os estados avaliados desta substÃ¢ncia?')) {
       setStatesLog((prev) =>
         prev.filter((s) => !(s.category === category && getCanonicalSubId(s.category, s.substanceId) === activeCanonicalSub))
       );
@@ -518,11 +518,11 @@ export const App: React.FC = () => {
 
   const handleExportCSV = () => {
     if (activeStates.length === 0) {
-      alert('Nenhum estado adicionado ao histórico desta substância para exportar.');
+      alert('Nenhum estado adicionado ao histÃ³rico desta substÃ¢ncia para exportar.');
       return;
     }
     const curUnits = UnitConverter.getUnitLabels(unitSystem);
-    const header = `#;Substância;Temperatura (${curUnits.T});Pressão (${curUnits.P});Volume Específico (${curUnits.v});Energia Interna (${curUnits.u});Entalpia (${curUnits.h});Entropia (${curUnits.s});Título (x);Fase\n`;
+    const header = `#;SubstÃ¢ncia;Temperatura (${curUnits.T});PressÃ£o (${curUnits.P});Volume EspecÃ­fico (${curUnits.v});Energia Interna (${curUnits.u});Entalpia (${curUnits.h});Entropia (${curUnits.s});TÃ­tulo (x);Fase\n`;
     const rows = activeStates.map((s, idx) => {
       const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
       const dispT = UnitConverter.fromInternalT(s.T, curUnits.T);
@@ -547,11 +547,11 @@ export const App: React.FC = () => {
 
   const handleCopyTable = () => {
     if (activeStates.length === 0) {
-      alert('Nenhum estado adicionado ao histórico desta substância para copiar.');
+      alert('Nenhum estado adicionado ao histÃ³rico desta substÃ¢ncia para copiar.');
       return;
     }
     const curUnits = UnitConverter.getUnitLabels(unitSystem);
-    let md = `| # | Substância | Temperatura [${curUnits.T}] | Pressão [${curUnits.P}] | Volume [${curUnits.v}] | Energia [${curUnits.u}] | Entalpia [${curUnits.h}] | Entropia [${curUnits.s}] | Título | Fase |\n`;
+    let md = `| # | SubstÃ¢ncia | Temperatura [${curUnits.T}] | PressÃ£o [${curUnits.P}] | Volume [${curUnits.v}] | Energia [${curUnits.u}] | Entalpia [${curUnits.h}] | Entropia [${curUnits.s}] | TÃ­tulo | Fase |\n`;
     md += `|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n`;
     activeStates.forEach((s, idx) => {
       const mm = s.molarMass ?? (FLUID_CATALOG[s.substanceId]?.molarMass ?? 18.015);
@@ -565,7 +565,7 @@ export const App: React.FC = () => {
       md += `| ${idx + 1} | ${s.substanceName} | ${dispT} | ${dispP} | ${dispV} | ${dispU} | ${dispH} | ${dispS} | ${dispX} | ${UnitConverter.formatPhasePtBr(s.phase)} |\n`;
     });
     navigator.clipboard.writeText(md);
-    alert('Tabela de histórico copiada para a área de transferência!');
+    alert('Tabela de histÃ³rico copiada para a Ã¡rea de transferÃªncia!');
   };
 
   const handlePrint = () => {
@@ -573,13 +573,13 @@ export const App: React.FC = () => {
   };
 
   const getSubstanceTitle = () => {
-    if (category === 'WATER') return 'Água / Vapor (H₂O)';
+    if (category === 'WATER') return 'Ãgua / Vapor (Hâ‚‚O)';
     if (category === 'REFRIGERANTS') return FLUID_CATALOG[substanceId]?.name || 'R-134a';
-    if (category === 'CRYOGENICS') return FLUID_CATALOG[substanceId]?.name || 'Amônia (NH₃)';
+    if (category === 'CRYOGENICS') return FLUID_CATALOG[substanceId]?.name || 'AmÃ´nia (NHâ‚ƒ)';
     if (category === 'AIR') return 'Ar (Tabela A-17)';
-    if (category === 'IDEAL_GASES') return GAS_CATALOG[substanceId]?.name || 'CO₂';
+    if (category === 'IDEAL_GASES') return GAS_CATALOG[substanceId]?.name || 'COâ‚‚';
     if (category === 'COMPRESSIBILITY') return 'Compressibilidade (Z)';
-    return 'Psicrometria (Ar Úmido)';
+    return 'Psicrometria (Ar Ãšmido)';
   };
 
   const units = UnitConverter.getUnitLabels(unitSystem);
@@ -627,7 +627,6 @@ export const App: React.FC = () => {
         onExportCSV={handleExportCSV}
         onCopyTable={handleCopyTable}
         onOpenAbout={() => setIsAboutOpen(true)}
-        onOpenHelp={() => setIsQuickHelpOpen(true)}
         onClearProcessCurves={handleClearActiveProcessCurves}
       />
 
@@ -680,7 +679,7 @@ export const App: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between bg-white border border-slate-300 p-2.5 font-mono">
               <span className="text-xs font-bold uppercase text-slate-800">
-                Visualização Expandida de Estados Avaliados
+                VisualizaÃ§Ã£o Expandida de Estados Avaliados
               </span>
               <button
                 onClick={handleOpenCalculate}
