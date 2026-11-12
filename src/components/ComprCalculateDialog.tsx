@@ -17,6 +17,7 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [valTr, setValTr] = useState<string>('1.2');
+  const [showHelp, setShowHelp] = useState(false);
   const [valPr, setValPr] = useState<string>('1.5');
   const [valOmega, setValOmega] = useState<string>('0.00');
 
@@ -110,6 +111,12 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar Compressibilidade (Z):</strong> Informe a <strong>Temperatura Reduzida (Tr = T/Tc)</strong>, a <strong>Pressão Reduzida (Pr = P/Pc)</strong> e o <strong>Fator Acêntrico (ω)</strong> da substância para obter Z = Z⁽⁰⁾ + ω·Z⁽¹⁾, desvios de entalpia/entropia e fugacidade (Lee-Kesler).
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -129,7 +136,7 @@ export const ComprCalculateDialog: React.FC<ComprCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('As tabelas de compressibilidade calculam o fator Z = Z(0) + ω*Z(1) a partir das coordenadas adimensionais de van der Waals / Lee-Kesler.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

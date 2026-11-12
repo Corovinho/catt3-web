@@ -24,6 +24,7 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [inputType, setInputType] = useState<AirInputType>('T');
+  const [showHelp, setShowHelp] = useState(false);
   const [valT, setValT] = useState<string>('25'); // °C
   const [valU, setValU] = useState<string>('213'); // kJ/kg
   const [valH, setValH] = useState<string>('298'); // kJ/kg
@@ -271,6 +272,12 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar a Tabela de Ar (A-17):</strong> Escolha à esquerda uma propriedade dependente da temperatura (<strong>T, u, h, s°, Pr ou vr</strong>) e informe a <strong>Pressão (P)</strong> do estado à direita. Para processos isentrópicos do ar, use as razões relativas <strong>Pr₂/Pr₁ = P₂/P₁</strong> ou <strong>vr₂/vr₁ = v₂/v₁</strong>.
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -290,7 +297,7 @@ export const AirCalculateDialog: React.FC<AirCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na Tabela de Ar do CATT-Web, você pode definir uma propriedade conhecida (Temperatura, Energia, Entalpia, s°, Pr ou vr) junto com a pressão do estado para obter todas as demais propriedades.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

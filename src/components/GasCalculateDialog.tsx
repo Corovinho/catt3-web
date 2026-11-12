@@ -28,6 +28,7 @@ export const GasCalculateDialog: React.FC<GasCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [mode, setMode] = useState<IdealGasInputMode>('TP');
+  const [showHelp, setShowHelp] = useState(false);
   const [valT, setValT] = useState<string>('25');
   const [valP, setValP] = useState<string>('0.101325');
   const [valU, setValU] = useState<string>('-9000');
@@ -322,6 +323,12 @@ export const GasCalculateDialog: React.FC<GasCalculateDialogProps> = ({
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar Gases Ideais:</strong> Escolha o gás no topo e selecione um dos <strong>7 pares de entrada</strong> à esquerda (<strong>T e P, u e P, h e P, s° e P, s e P, v e P ou T e v</strong>). O CATT-Web calcula h, u, s, s°, cp, cv e k = cp/cv via polinômios NIST Shomate.
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -341,7 +348,7 @@ export const GasCalculateDialog: React.FC<GasCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na aba de Gases Ideais do CATT-Web, você pode informar qualquer par independente (T e P, u e P, h e P, s° e P, s e P, v e P ou T e v) para obter todas as propriedades termodinâmicas via polinômios NIST Shomate.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

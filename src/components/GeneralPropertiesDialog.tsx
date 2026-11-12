@@ -53,6 +53,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
   substanceName,
 }) => {
   const [inputType, setInputType] = useState<InputType>('1_TP');
+  const [showHelp, setShowHelp] = useState(false);
   
   const [valT, setValT] = useState<string>('100');
   const [valP, setValP] = useState<string>('0.1');
@@ -327,6 +328,12 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar Propriedades Gerais:</strong> Marque à esquerda o par de propriedades independentes conhecidas (opções 1 a 11, ex.: <strong>T &amp; P</strong>, <strong>P &amp; H</strong>, <strong>P &amp; S</strong> ou <strong>P &amp; X</strong>) e digite os dois valores habilitados à direita. O CATT-Web identifica automaticamente a fase (líquido comprimido, mistura saturada ou vapor superaquecido).
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -346,7 +353,7 @@ export const GeneralPropertiesDialog: React.FC<GeneralPropertiesDialogProps> = (
           </button>
 
           <button
-            onClick={() => alert('Selecione o par de propriedades independentes à esquerda (opções 1 a 11) e insira os dois valores correspondentes à direita para determinar o estado termodinâmico.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

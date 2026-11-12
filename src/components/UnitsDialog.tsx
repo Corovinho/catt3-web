@@ -21,6 +21,7 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
 }) => {
   const activeSystem = currentSystem || currentUnitSystem || 'SI';
   const [selected, setSelected] = useState<UnitSystem>(activeSystem);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -120,6 +121,12 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
           </table>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Sistemas de Unidades:</strong> Clique em qualquer uma das <strong>5 colunas</strong> (SI em MPa, SI em kPa, SI Molar, Britânico Mássico ou Britânico Molar) para converter automaticamente todas as janelas, tabelas e exportações.
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -139,7 +146,7 @@ export const UnitsDialog: React.FC<UnitsDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Selecione uma das 5 opções de sistemas de unidades padronizados (SI em MPa, SI em kPa, SI Molar, Britânico Mássico e Britânico Molar).')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

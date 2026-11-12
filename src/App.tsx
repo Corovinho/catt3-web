@@ -22,6 +22,7 @@ import { TablesSubstancesModal } from './components/TablesSubstancesModal';
 import { UnitsDialog } from './components/UnitsDialog';
 import { ProcessModal } from './components/ProcessModal';
 import { AboutDialog } from './components/AboutDialog';
+import { QuickHelpDialog } from './components/QuickHelpDialog';
 import { WaterEngine } from './engine/water';
 import { RefrigerantEngine, FLUID_CATALOG } from './engine/refrigerants';
 import { AirEngine } from './engine/air';
@@ -66,6 +67,7 @@ export const App: React.FC = () => {
   const [isUnitsOpen, setIsUnitsOpen] = useState(false);
   const [isProcessOpen, setIsProcessOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isQuickHelpOpen, setIsQuickHelpOpen] = useState(false);
   const [processCurves, setProcessCurves] = useState<ProcessCurve[]>([]);
 
   // States
@@ -162,7 +164,9 @@ export const App: React.FC = () => {
       isTablesSubstancesOpen ||
       isUnitsOpen ||
       isProcessOpen ||
-      isAboutOpen;
+      isProcessOpen ||
+      isAboutOpen ||
+      isQuickHelpOpen;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (anyModalOpen) return;
@@ -171,7 +175,7 @@ export const App: React.FC = () => {
 
       if (e.key === 'F1') {
         e.preventDefault();
-        setIsAboutOpen(true);
+        setIsQuickHelpOpen(true);
       } else if (e.key === 'F2') {
         e.preventDefault();
         handleOpenCalculate();
@@ -599,6 +603,7 @@ export const App: React.FC = () => {
         setActiveView={setActiveView}
         logCount={activeStates.length}
         onOpenProcess={() => setIsProcessOpen(true)}
+        onOpenHelp={() => setIsQuickHelpOpen(true)}
       />
 
       {/* Main Menu & Toolbar */}
@@ -606,6 +611,7 @@ export const App: React.FC = () => {
         onOpenCalculate={handleOpenCalculate}
         onOpenUnits={() => setIsUnitsOpen(true)}
         onOpenProcess={() => setIsProcessOpen(true)}
+        onOpenHelp={() => setIsQuickHelpOpen(true)}
         onOpenTablesSubstancesModal={() => setIsTablesSubstancesOpen(true)}
         onSelectCategory={handleCategoryChange}
         onAddCurrentState={() => currentState && handleAddStateToLog(currentState)}
@@ -621,6 +627,7 @@ export const App: React.FC = () => {
         onExportCSV={handleExportCSV}
         onCopyTable={handleCopyTable}
         onOpenAbout={() => setIsAboutOpen(true)}
+        onOpenHelp={() => setIsQuickHelpOpen(true)}
         onClearProcessCurves={handleClearActiveProcessCurves}
       />
 
@@ -802,6 +809,11 @@ export const App: React.FC = () => {
       <AboutDialog
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
+      />
+
+      <QuickHelpDialog
+        isOpen={isQuickHelpOpen}
+        onClose={() => setIsQuickHelpOpen(false)}
       />
     </div>
   );

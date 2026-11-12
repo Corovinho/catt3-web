@@ -1,6 +1,6 @@
 import React from 'react';
 import { UnitSystem } from '../types/thermo';
-import { Activity, Layers, LineChart, Sparkles } from 'lucide-react';
+import { Activity, Layers, LineChart, Sparkles, HelpCircle } from 'lucide-react';
 
 interface NavbarProps {
   unitSystem: UnitSystem;
@@ -9,6 +9,7 @@ interface NavbarProps {
   setActiveView: (v: 'calc' | 'log' | 'diagram') => void;
   logCount: number;
   onOpenProcess: () => void;
+  onOpenHelp?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveView,
   logCount,
   onOpenProcess,
+  onOpenHelp,
 }) => {
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-30 px-3 py-2.5 sm:px-6">
@@ -101,11 +103,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Action and Unit buttons (Straight Edges) */}
-        <div className="flex items-center gap-2">
+        {/* Action, Unit, and Quick Help buttons (Straight Edges) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={onOpenProcess}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 transition-colors font-mono"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 transition-colors font-mono cursor-pointer"
             title="Traçar processo termodinâmico (Isotérmico, Isobárico, Isentrópico...)"
           >
             <Sparkles className="w-3.5 h-3.5 text-slate-700" />
@@ -116,7 +118,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <select
             value={unitSystem}
             onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
-            className="bg-white border border-slate-300 text-slate-900 text-xs px-2.5 py-1.5 focus:outline-none focus:border-black font-mono transition-colors cursor-pointer"
+            className="bg-white border border-slate-300 text-slate-900 text-xs px-2 sm:px-2.5 py-1.5 focus:outline-none focus:border-black font-mono transition-colors cursor-pointer"
           >
             <option value="SI">SI (MPa / °C)</option>
             <option value="SI_KPA">SI (kPa / °C)</option>
@@ -124,6 +126,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <option value="BRITISH">Britânico / Imperial (psia / °F)</option>
             <option value="BRITISH_MOLE">Britânico Molar (psia / °R)</option>
           </select>
+
+          {onOpenHelp && (
+            <button
+              onClick={onOpenHelp}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-400 text-slate-900 font-bold transition-colors font-mono cursor-pointer shrink-0"
+              title="Guia Rápido de Uso do CATT-Web (F1)"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-sky-700 stroke-[2.5]" />
+              <span className="hidden sm:inline">AJUDA</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

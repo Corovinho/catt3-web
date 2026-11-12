@@ -28,6 +28,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
   onCalculate,
 }) => {
   const [primaryType, setPrimaryType] = useState<'T' | 'P'>('T');
+  const [showHelp, setShowHelp] = useState(false);
   const [valT, setValT] = useState<string>('100');
   const [valP, setValP] = useState<string>('0.101325');
 
@@ -297,6 +298,12 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar Saturação (Domo L+V):</strong> Escolha se você conhece a <strong>Temperatura</strong> ou a <strong>Pressão</strong> de saturação no topo e, abaixo, defina a condição da mistura (<strong>Título x</strong> entre 0 e 1, <strong>Líquido Saturado x=0</strong>, <strong>Vapor Saturado x=1</strong> ou uma propriedade da mistura). Todos os limites de saturação (vf, vg, hf, hg, sf, sg) serão exibidos.
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -316,7 +323,7 @@ export const FluidSatDialog: React.FC<FluidSatDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('No modo Propriedades de Saturação do CATT-Web, informe a Temperatura ou Pressão no domo de vapor e defina a condição da mistura (título x, líquido saturado ou vapor saturado). Os limites de saturação vf, vg, hf, hg, sf e sg serão calculados.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

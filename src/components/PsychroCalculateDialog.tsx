@@ -28,6 +28,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
   onCalculate,
 }) => {
   const [mode, setMode] = useState<PsychroInputMode>('Tdb_RH');
+  const [showHelp, setShowHelp] = useState(false);
   const [valTdb, setValTdb] = useState<string>('25');
   const [valRH, setValRH] = useState<string>('50');
   const [valTwb, setValTwb] = useState<string>('18');
@@ -260,6 +261,12 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
           </div>
         </div>
 
+        {showHelp && (
+          <div className="bg-sky-50 border border-sky-300 p-2.5 text-[11px] text-slate-800 leading-relaxed">
+            <strong>Como usar Psicrometria (Ar Úmido):</strong> Informe a <strong>Pressão Total (Patm)</strong>, a <strong>Temperatura de Bulbo Seco (Tbs)</strong> e escolha a segunda propriedade conhecida à esquerda (<strong>Umidade Relativa φ, Bulbo Úmido Tbu, Ponto de Orvalho Tpo ou Umidade Absoluta ω</strong>).
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-300">
           <button
@@ -279,7 +286,7 @@ export const PsychroCalculateDialog: React.FC<PsychroCalculateDialogProps> = ({
           </button>
 
           <button
-            onClick={() => alert('Na Psicrometria do CATT-Web, você pode fornecer qualquer par de propriedades psicrométricas independentes (Bulbo Seco com Umidade Relativa, Bulbo Úmido, Ponto de Orvalho ou Razão de Umidade) sob a pressão total desejada.')}
+            onClick={() => setShowHelp((v) => !v)}
             className="px-4 py-1.5 bg-[#e1e1e1] hover:bg-[#d0d0d0] border-2 border-slate-700 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-sm uppercase tracking-wider cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-sky-700 stroke-[3]" />

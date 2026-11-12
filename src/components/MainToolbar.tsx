@@ -32,6 +32,7 @@ interface MainToolbarProps {
   onExportCSV?: () => void;
   onCopyTable?: () => void;
   onOpenAbout?: () => void;
+  onOpenHelp?: () => void;
   onClearProcessCurves?: () => void;
 }
 
@@ -54,6 +55,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   onExportCSV,
   onCopyTable,
   onOpenAbout,
+  onOpenHelp,
   onClearProcessCurves,
 }) => {
   const [activeMenu, setActiveMenu] = useState<'file' | 'edit' | 'tables' | 'options' | 'log' | 'help' | null>(null);
@@ -307,9 +309,9 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
               <button
                 onClick={() => {
                   closeMenu();
-                  alert(
-                    'Instruções de Uso do CATT-Web:\n1. Selecione a substância desejada no menu "Tabelas / Substâncias" ou nas abas inferiores.\n2. Clique em "Calcular" (ou pressione F2) para abrir o diálogo de propriedades e inserir as variáveis conhecidas.\n3. O estado será plotado no diagrama (T-s ou P-v) e registrado na tabela de histórico abaixo.\n4. Utilize "Processo" para traçar transformações termodinâmicas (isotérmica, isobárica, isentrópica, politrópica, etc.).'
-                  );
+                  if (onOpenHelp) onOpenHelp();
+
+                  else if (onOpenAbout) onOpenAbout();
                 }}
                 className="w-full text-left px-3 py-1 hover:bg-[#0078d7] hover:text-white"
               >
