@@ -1,4 +1,4 @@
-const CACHE_NAME = 'catt-web-cache-v9';
+const CACHE_NAME = 'catt-web-cache-v10';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

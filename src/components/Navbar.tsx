@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">CATT-Web</span>
+              <h1 className="font-bold text-slate-950 tracking-tight text-sm sm:text-base uppercase whitespace-nowrap">CATT-Web</h1>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block font-mono tracking-tight">Tabelas Termodinâmicas Computacionais</p>
           </div>

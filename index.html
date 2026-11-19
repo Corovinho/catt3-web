@@ -3,22 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>CATT-Web | Tabelas Termodinâmicas Computacionais</title>
+    <title>CATT-Web | Tabelas Termodinâmicas Online (CATT / CATT3 Web)</title>
     <meta name="application-name" content="CATT-Web" />
     <meta name="apple-mobile-web-app-title" content="CATT-Web" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#ffffff" />
-    <meta name="description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta
+      name="description"
+      content="CATT-Web (CATT / CATT3 Online): Tabelas Termodinâmicas Computacionais gratuitas em português. Calcule propriedades da Água (IAPWS-IF97), 20 Refrigerantes (R-134a, R-22, R-410A), 11 Criogênicos, Ar (Tabela A-17), Gases Ideais (NIST), Compressibilidade Z, Psicrometria e diagramas T-s e P-v no navegador ou celular."
+    />
+    <meta
+      name="keywords"
+      content="CATT, CATT Web, CATT-Web, CATT3, CATT3 Web, CATT online, tabelas termodinâmicas, tabela termodinâmica online, IAPWS-IF97, tabela de vapor d'água, R-134a, tabela A-17 ar, diagrama T-s, diagrama P-v, psicrometria online, fator de compressibilidade Z, engenharia mecânica, termodinâmica"
+    />
+    <meta name="author" content="CATT-Web" />
     <link rel="canonical" href="https://catt-web.vercel.app/" />
+    <meta property="og:locale" content="pt_BR" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CATT-Web" />
-    <meta property="og:title" content="CATT-Web | Tabelas Termodinâmicas Computacionais" />
-    <meta property="og:description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <meta property="og:title" content="CATT-Web | Tabelas Termodinâmicas Online (CATT / CATT3 Web)" />
+    <meta
+      property="og:description"
+      content="Tabelas Termodinâmicas Computacionais online em português: Água IAPWS-IF97, Refrigerantes, Criogênicos, Ar A-17, Gases Ideais, Compressibilidade, Psicrometria e Diagramas T-s / P-v."
+    />
     <meta property="og:url" content="https://catt-web.vercel.app/" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="CATT-Web | Tabelas Termodinâmicas Computacionais" />
-    <meta name="twitter:description" content="CATT-Web - Tabelas Termodinâmicas Computacionais de Alta Precisão em Português." />
+    <meta name="twitter:title" content="CATT-Web | Tabelas Termodinâmicas Online (CATT / CATT3 Web)" />
+    <meta
+      name="twitter:description"
+      content="Calcule propriedades termodinâmicas, diagramas T-s e P-v e processos termodinâmicos online e offline no CATT-Web."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "CATT-Web",
+        "alternateName": ["CATT Web", "CATT", "CATT3 Web", "CATT Online", "Tabelas Termodinâmicas Online"],
+        "url": "https://catt-web.vercel.app/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "All",
+        "inLanguage": "pt-BR",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "BRL"
+        },
+        "description": "Plataforma web gratuita de Tabelas Termodinâmicas Computacionais em português (CATT-Web): Água e Vapor IAPWS-IF97, 20 Refrigerantes, 11 Criogênicos, Tabela de Ar A-17, 12 Gases Ideais NIST Shomate, Fator de Compressibilidade Z, Psicrometria ASHRAE e traçador de 9 processos termodinâmicos em diagramas T-s e P-v."
+      }
+    </script>
     <script>
       (function () {
         var host = window.location.hostname;
@@ -52,6 +88,24 @@
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-black selection:text-white">
     <div id="root"></div>
+    <noscript>
+      <main style="max-width: 820px; margin: 24px auto; padding: 16px; font-family: sans-serif;">
+        <h1>CATT-Web — Tabelas Termodinâmicas Computacionais Online (CATT / CATT3 Web)</h1>
+        <p>
+          O CATT-Web é uma calculadora gratuita de propriedades termodinâmicas para estudantes e engenheiros.
+          Ative o JavaScript para usar os cálculos interativos, diagramas T-s e P-v e traçador de processos.
+        </p>
+        <ul>
+          <li>Água e Vapor (IAPWS-IF97) — líquido comprimido, mistura saturada e vapor superaquecido</li>
+          <li>20 Fluidos Refrigerantes (R-134a, R-22, R-410A, CO2, R-12, R-404A, R-407C e mais)</li>
+          <li>11 Fluidos Criogênicos (Amônia, Nitrogênio, Oxigênio, Argônio, Hélio, Metano, Propano)</li>
+          <li>Tabela de Ar (Tabela A-17 / A-22) com calores específicos variáveis, Pr e vr</li>
+          <li>12 Gases Ideais (NIST Shomate) com cp, cv e k</li>
+          <li>Fator de Compressibilidade Generalizado (Z — Lee-Kesler / Pitzer)</li>
+          <li>Psicrometria (Ar Úmido — ASHRAE Fundamentals)</li>
+        </ul>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
